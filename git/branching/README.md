@@ -340,7 +340,7 @@ A: Use a `commit-msg` or `pre-push` hook via the pre-commit framework for local 
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 **Choose a branching strategy based on team size and deployment frequency, not on what sounds sophisticated.** Trunk-based development works well for teams that deploy multiple times per day with good automated testing. GitFlow works well for teams with monthly release cycles and parallel support obligations. Using GitFlow for a team that wants to deploy daily is an organizational impediment, not a safety mechanism.
 
@@ -351,6 +351,30 @@ A: Use a `commit-msg` or `pre-push` hook via the pre-commit framework for local 
 **The internal representation of a branch (40-byte pointer) means branching is essentially free.** Unlike SVN branches (server-side copies), Git branches are local, instantaneous, and cost nothing. Use them liberally for experiments, prototypes, and multi-day tasks. Delete them aggressively after merge.
 
 **Naming conventions that include ticket numbers make branch management tractable.** `fix/INC-8847-rds-security-group` is unambiguous. `fix/rds` is not. At 50+ branches in a repository, disambiguation becomes critical for bulk operations like `git branch -d $(git branch | grep fix/)`. Include the ticket number.
+
+---
+
+## Production Checklist
+
+### Branch strategy setup (new repository)
+
+- [ ] Branch protection on `main`: no force push, require PRs, require CI, no bypass
+- [ ] Branch naming convention documented in `CONTRIBUTING.md`
+- [ ] Branch naming hook installed (pre-push validation)
+- [ ] Maximum branch lifespan defined (TBD: 3 days; GitFlow: sprint length)
+- [ ] Auto-delete merged branches enabled in repository settings
+
+### Before creating a feature branch
+
+- [ ] Starting from the correct base: `git fetch origin && git checkout -b feat/X origin/main`
+- [ ] Ticket number included in branch name: `feat/INFRA-223-vpc-peering`
+- [ ] Work is scoped to ≤ 3 days of effort (split if larger)
+
+### Branch cleanup (weekly/monthly)
+
+- [ ] List stale branches: `git for-each-ref --sort=creatordate refs/remotes/origin --format='%(creatordate:relative) %(refname:short)'`
+- [ ] No branches older than 30 days without active PR
+- [ ] Local branches pruned: `git remote prune origin && git branch -vv | grep 'gone' | awk '{print $1}' | xargs git branch -d`
 
 ---
 

@@ -137,7 +137,7 @@ These are signs your branch model is wrong, not that you need more cherry-picks.
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 Cherry-pick is most valuable in two precise scenarios: hotfix backporting and salvaging specific commits from abandoned branches. Outside of these two cases, a merge or rebase is almost always the cleaner choice.
 

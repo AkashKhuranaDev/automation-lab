@@ -301,7 +301,7 @@ A: Yes, if GC has not run. The stash commit objects still exist as unreachable o
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 **A stash older than a day is probably a branch.** If you are saving work in a stash with the intention of returning to it later, that work deserves a branch with a meaningful name. Stashes are not browsable in the standard `git log`, have no commit message by default, and are easy to forget. Name them if you must use them: `git stash push -m "WIP: auth token refresh logic"`.
 

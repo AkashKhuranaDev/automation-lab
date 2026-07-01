@@ -328,7 +328,7 @@ A: It stages all changes indiscriminately, including unrelated modifications. Th
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 **The three-tree model is the single concept that unblocks most Git confusion.** Every question of "why did that happen" or "how do I undo this" becomes answerable once an engineer understands that Git maintains three separate states and that each command moves changes between them deliberately.
 

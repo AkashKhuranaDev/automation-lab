@@ -292,7 +292,7 @@ A: If two files have identical content, they will have identical blob SHAs. Git 
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 **Understanding the object model pays dividends in recovery situations.** An engineer who knows that commits, trees, and blobs are all content-addressed objects in `.git/objects/` will immediately understand why deleted commits are recoverable via reflog, why the same file content in two places only occupies one object, and why rebase creates new commits rather than moving existing ones.
 

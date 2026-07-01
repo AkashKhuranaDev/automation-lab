@@ -378,7 +378,7 @@ A: When the object has been removed by garbage collection after the reflog entry
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 **The reflog is the recovery safety net. Understand it before you need it.** The reflog records every position HEAD and branch tips have pointed to. Most "lost" commits are trivially recoverable via `git reflog` within 90 days. Engineers who understand this are calm during incidents; those who don't are panicked.
 

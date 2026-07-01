@@ -398,7 +398,7 @@ A: It enters the repository history permanently. Even if deleted in a subsequent
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 **`git maintenance` is the correct long-term answer for repository health.** `git gc` is a one-shot command. `git maintenance` is a scheduled background service (Git 2.31+) that keeps the repository healthy incrementally. Set it up on developer workstations and CI nodes and forget about manual GC.
 

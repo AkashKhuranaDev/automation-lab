@@ -128,7 +128,7 @@ Ask this about each commit before deciding to squash or keep:
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 Squashing is not about hiding work. It is about leaving the right signal for future engineers.
 

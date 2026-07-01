@@ -157,7 +157,7 @@ Changing branching strategies is a team migration, not a configuration change. P
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 The worst branching strategy is the one that evolved organically without being documented. Every team has one — `main`, some feature branches, an old `develop` that nobody quite knows the status of, and a `hotfix` branch from 8 months ago.
 

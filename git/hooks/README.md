@@ -381,7 +381,7 @@ A: The `.git/` directory is local and not tracked. It is never cloned or pushed.
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 **Pre-commit hooks are the closest thing to a mandatory code review that does not require a human.** A well-configured `pre-commit` hook stack (linting, secrets scanning, commit message format) catches the most common defects before they reach the remote. The time cost is seconds per commit, paid once by the author, versus the cost of a review cycle or a production incident.
 

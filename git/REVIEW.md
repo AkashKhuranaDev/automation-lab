@@ -31,7 +31,7 @@ Every major concept has a Mermaid diagram. The object model, three-tree architec
 ### Production Context
 The troubleshooting section covers 15 actual production failure scenarios. The case studies document real patterns from enterprise infrastructure environments. The incident playbooks are written to be used during active P1/P2 incidents, not read in advance.
 
-### Engineering Notes Sections
+### Engineering Insight Sections
 All 21 topic READMEs (15 core topics + 6 decision guides) include an Engineering Notes section. These are not restated documentation — they are the observations an experienced engineer would share that are not obvious from reading the man pages.
 
 ---

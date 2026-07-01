@@ -159,7 +159,7 @@ This requires a force push to fix, which rewrites history your teammates have pu
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 `git reset --hard` is one of the most misused commands in Git. Engineers reach for it when they should reach for `git revert`, because `--hard` *feels* cleaner — it removes the mistake from history. But on a shared branch, that cleanliness comes at the cost of every teammate's local clone.
 

@@ -343,7 +343,7 @@ A: `--ff-only` fails the merge if a fast-forward is not possible — useful for 
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 **The merge strategy debate (merge vs rebase) is mostly a question of what your `git log` should communicate.** Merge commits preserve branch topology — `git log --graph` shows where branches diverged and rejoined. Rebase produces a linear history where every commit is directly on `main`. Neither is objectively correct; choose based on what the team needs to see in `git log` during a production incident.
 
@@ -354,6 +354,31 @@ A: `--ff-only` fails the merge if a fast-forward is not possible — useful for 
 **`git log --merge` during conflict resolution shows exactly what caused the conflict.** This is the most useful diagnostic command during a complex merge conflict. It filters the log to only commits that touch conflicting files on either side, showing you exactly what each side was trying to accomplish.
 
 **Squash merges lose authorship traceability.** When a PR with 12 commits is squash-merged, the 12 individual commit authors and messages are collapsed into one. For open source or cross-team contributions, this erases the granular audit trail. Use squash merge for cleanup of messy work-in-progress history, not as a blanket policy.
+
+---
+
+## Production Checklist
+
+### Before merging to a protected branch
+
+- [ ] CI is green on the source branch
+- [ ] All required reviews are approved
+- [ ] Branch is up-to-date with target: `git log HEAD..origin/main` shows nothing
+- [ ] No unresolved conflict markers: `grep -r '<<<<<<<' .`
+- [ ] Squash policy decision made: messy WIP history → squash; clean history → no-ff
+- [ ] Auto-delete branch after merge is configured in GitHub PR settings
+
+### After a merge conflict
+
+- [ ] No conflict markers remain: `git diff --check`
+- [ ] Tests pass on the merged state — not just on the source branch
+- [ ] `rerere` resolution is correct if `rerere.enabled true` is set: `git rerere status`
+- [ ] If `--no-ff` merge: merge commit message references the PR number
+
+### Merge rollback
+
+- [ ] Know the merge commit SHA before merging (note it): `git log --oneline -1`
+- [ ] If rollback needed after push: `git revert -m 1 <merge-sha>`, **not** `git reset --hard`
 
 ---
 

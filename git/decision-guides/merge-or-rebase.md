@@ -125,7 +125,7 @@ Everything else is a tradeoff. The shared-branch rule is absolute. Breaking it r
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 The merge vs rebase debate is the most over-argued topic in Git. Most teams spend more time debating this than it is worth.
 

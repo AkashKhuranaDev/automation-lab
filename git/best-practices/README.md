@@ -311,7 +311,7 @@ A: The secret still exists in the Git object store and is visible in the history
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 **Best practices are not a checklist; they are defaults that must be actively maintained.** Conventional commits, atomic commits, and branch protection rules are all easy to configure once. The challenge is maintaining them as teams change and processes drift. Schedule a quarterly review of your Git practices the same way you schedule dependency updates.
 

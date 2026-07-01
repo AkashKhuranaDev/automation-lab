@@ -362,7 +362,7 @@ A: Both merge the commit into the previous one. `squash` opens the editor so you
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 **Rebase is a local history rewriting tool, not a team collaboration tool.** The rule "never rebase shared branches" exists because rebase creates new commits with new SHAs. Anyone else working from the original commits will have a divergent history that cannot be reconciled without force-pushing. On your private feature branch, rebase freely. On any branch that other engineers have fetched, do not rebase.
 
@@ -373,6 +373,31 @@ A: Both merge the commit into the previous one. `squash` opens the editor so you
 **The `--autosquash` workflow (`commit --fixup` + `rebase -i --autosquash`) deserves to be standard practice.** When responding to review feedback, `git commit --fixup=<original-sha>` creates a fixup commit that is automatically squashed into the right place during interactive rebase. This keeps the PR review history clean and eliminates manual squashing.
 
 **Rebase conflicts are easier than merge conflicts in one respect.** In a merge, all conflicts appear at once. In a rebase, conflicts appear one commit at a time. Each conflict is smaller and easier to reason about because you are applying one commit's worth of changes at a time.
+
+---
+
+## Production Checklist
+
+### Before rebasing a branch
+
+- [ ] Branch is **not** shared with other engineers (check with `git log --remotes`)
+- [ ] Working tree is clean — `git status` shows nothing staged or modified
+- [ ] Create a safety backup: `git branch backup/$(git branch --show-current)-$(date +%s)`
+- [ ] Confirm the rebase base is correct: `git log --oneline <base>..HEAD`
+- [ ] Push the safety branch: `git push origin <backup-branch-name>`
+- [ ] Notify teammates if the branch has been in review for > 24 hours
+
+### During interactive rebase
+
+- [ ] Verify commit order before saving the rebase instruction file
+- [ ] Test after each `exec` step if using `--exec`
+- [ ] If conflicts occur: resolve, `git add`, then `git rebase --continue` — never `git commit`
+
+### After rebasing
+
+- [ ] Run the test suite on the rebased branch before force-pushing
+- [ ] Force-push with lease: `git push --force-with-lease` (never bare `--force`)
+- [ ] Delete the backup branch after confirming the PR is merged
 
 ---
 

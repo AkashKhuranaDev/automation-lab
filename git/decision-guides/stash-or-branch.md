@@ -130,7 +130,7 @@ If stash list grows, the work in it is WIP branch work being stored in the wrong
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 The stash-vs-branch decision is ultimately about how much you trust your memory and your machine.
 

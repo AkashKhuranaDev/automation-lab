@@ -445,7 +445,7 @@ A: A PAT with `repo` scope can read, write, and delete all private repositories 
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 **Rotate credentials before cleaning Git history.** When a secret is committed to a repository, the instinct is to delete the commit and move on. The correct instinct is to rotate the credential immediately, then clean the history. Rotation invalidates the leaked credential in 30 seconds. History cleanup takes hours. Every second spent on history cleanup before rotation is a second the credential remains valid.
 
@@ -456,6 +456,33 @@ A: A PAT with `repo` scope can read, write, and delete all private repositories 
 **Fine-grained PATs over classic PATs.** Classic PATs grant broad access. Fine-grained PATs are scoped to specific repositories and specific permissions. Use fine-grained PATs for all new automation. Audit existing classic PATs and replace them.
 
 **`AddKeysToAgent yes` in SSH config is required on macOS.** Without it, the SSH key is not loaded into the agent across reboots, and `git push` will prompt for a passphrase in scripts and CI contexts. This is a macOS-specific requirement that catches engineers who set up SSH correctly on Linux but not on their Mac.
+
+---
+
+## Production Checklist
+
+### Repository security baseline
+
+- [ ] `gitleaks` pre-commit hook installed: `pre-commit install`
+- [ ] `.gitignore` explicitly excludes `.env`, `*.pem`, `*.key`, `credentials/`
+- [ ] Branch protection on `main`: no force push, required reviews, required CI
+- [ ] Least-privilege PAT for CI (fine-grained, repo-scoped, not classic)
+- [ ] GitHub Secret Scanning enabled on all repositories
+- [ ] GitHub Push Protection enabled (blocks known secret patterns at push time)
+
+### Commit signing
+
+- [ ] SSH or GPG signing configured: `git config commit.gpgsign true`
+- [ ] Signing key pushed to GitHub account settings
+- [ ] `git log --show-signature` confirms signatures on recent commits
+- [ ] `allowed_signers` file configured for SSH verification
+
+### Incident response readiness
+
+- [ ] Know how to rotate AWS/GCP/Azure credentials from memory (practice quarterly)
+- [ ] `git filter-repo` installed: `pip install git-filter-repo`
+- [ ] Incident response doc bookmarked: [`production-incidents/P002`](../production-incidents/P002-secret-committed-to-public-repo.md)
+- [ ] GitHub Audit Log streaming configured to SIEM or Slack
 
 ---
 

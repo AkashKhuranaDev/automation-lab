@@ -370,7 +370,7 @@ A: Recreate it: `git tag -d v1.2.0` locally, `git push origin :refs/tags/v1.2.0`
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 **Lightweight tags are for local bookmarks; annotated tags are for releases.** An annotated tag (`git tag -a`) creates a tag object in the Git database with a tagger identity, timestamp, and message. This is what `git describe` uses to calculate distances. A lightweight tag is just a pointer — no metadata, no object. Use annotated tags for anything that goes to production.
 
@@ -381,6 +381,32 @@ A: Recreate it: `git tag -d v1.2.0` locally, `git push origin :refs/tags/v1.2.0`
 **Immutability of tags in production is critical.** Deleting and recreating a tag (`git tag -f`) is a destructive operation for anyone who has already fetched the old tag. They will not automatically receive the new one. For production release tags, treat them as immutable — publish a new tag rather than moving an existing one.
 
 **`git describe` is the basis of version strings in many release pipelines.** Understanding its output format (`v1.2.0-14-gab1c2d3`) — base tag, commits since tag, abbreviated SHA — is important for interpreting artifact version strings and tracing a deployed version back to its source commit.
+
+---
+
+## Production Checklist
+
+### Before tagging a release
+
+- [ ] All commits intended for this release are on `main` (or the release branch)
+- [ ] CI is green on the commit you are tagging
+- [ ] The commit SHA is noted and verified: `git log --oneline -1`
+- [ ] Tag uses annotated format: `git tag -a vX.Y.Z -m "..."` — not `git tag vX.Y.Z`
+- [ ] Tag message includes: version, date, brief description, and issue reference
+- [ ] If GPG or SSH signing: key is loaded — `gpg --list-keys` / `ssh-add -l`
+
+### After tagging
+
+- [ ] Pushed the tag: `git push origin vX.Y.Z` (not just `git push`)
+- [ ] GitHub Release created from the tag with release notes
+- [ ] CI/CD deployment triggered and verified
+- [ ] Tag is immutable — never `git tag -f` on a pushed production tag
+
+### Tag naming
+
+- [ ] Semantic version format: `vMAJOR.MINOR.PATCH`
+- [ ] Pre-release suffix if applicable: `v2.0.0-rc.1`, `v2.0.0-beta.1`
+- [ ] Hotfix increment: `v2.3.0` → `v2.3.1`
 
 ---
 

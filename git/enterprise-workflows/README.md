@@ -310,7 +310,7 @@ A: The Git history + GitHub pull request audit trail. Each commit is traceable t
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 **Enterprise Git workflows are organizational solutions to coordination problems.** The technical mechanics of Git are simple. The hard problems are: who can approve what, how do changes move through environments, what is the audit trail, and what happens when things go wrong. The workflows in this section address these coordination problems — the Git commands are just the implementation.
 
@@ -321,6 +321,34 @@ A: The Git history + GitHub pull request audit trail. Each commit is traceable t
 **CODEOWNERS is a gatekeeping mechanism, not a blame assignment.** Teams often resist CODEOWNERS because it feels punitive. The correct framing is: "changes to IAM configuration require security team review" is a risk control, not a statement about trust. Define code ownership by risk surface, not by team pride.
 
 **The `git log` on your production branch is a deployment record.** Every merge commit represents a reviewed, approved, and CI-validated change. The committer is recorded. The approvers are in the PR audit trail. The deploy timestamp is derivable from the tag. Treat `git log main --graph` as your change management system, because for any team using GitHub Flow, it effectively is.
+
+---
+
+## Production Checklist
+
+### Pre-release
+
+- [ ] All feature branches merged to the release branch
+- [ ] CI green on the release branch
+- [ ] Release notes drafted from `git log --oneline vPREVIOUS..HEAD`
+- [ ] Security scan (gitleaks, dependency audit) passing
+- [ ] CODEOWNERS approvals obtained for all critical path changes
+- [ ] Release tag created and pushed: `git tag -a vX.Y.Z -m "..."`
+
+### Compliance audit readiness
+
+- [ ] Every commit on `main` traceable to an approved PR
+- [ ] No direct pushes to `main` (verify with `git log --merges main`)
+- [ ] Branch protection rules current in GitHub Settings → Branches
+- [ ] GitHub Audit Log retention configured (90 days minimum)
+- [ ] CI status checks required — no bypass paths exist
+
+### Incident response
+
+- [ ] Rollback procedure documented and tested in last 90 days
+- [ ] On-call engineer has push access to create hotfix branch
+- [ ] Emergency change approval process defined (who approves out-of-band?)
+- [ ] `production-incidents/` playbooks bookmarked by all platform engineers
 
 ---
 

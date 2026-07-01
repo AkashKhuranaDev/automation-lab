@@ -499,7 +499,7 @@ A: Use `git bisect`. Mark the current state as bad, mark the last known-good rel
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 **Most Git emergencies feel worse than they are.** The vast majority of "I've lost my work" situations are recoverable via reflog within 90 days. The first 30 seconds of a Git emergency should be spent not running commands, but identifying whether the work was ever committed. Uncommitted work in the working directory after a `git reset --hard` is genuinely gone. Committed work almost never is.
 

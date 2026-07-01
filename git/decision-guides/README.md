@@ -18,6 +18,9 @@ Each guide is a flowchart you can follow under pressure — during a hotfix, dur
 | [Stash or Branch?](stash-or-branch.md) | Handling interrupted work |
 | [Squash or Not?](squash-or-not.md) | Commit history cleanup before merge |
 | [Which Branching Strategy?](branching-strategy.md) | Choosing a team workflow model |
+| [SSH vs HTTPS?](ssh-vs-https.md) | Authentication method for repositories and CI/CD |
+| [GitFlow vs Trunk-Based?](gitflow-vs-trunk-based.md) | Choosing a branching model for your team |
+| [Submodule vs Subtree?](submodule-vs-subtree.md) | Managing multi-repository dependencies |
 
 ---
 
@@ -36,7 +39,7 @@ If you find yourself asking "should I merge or rebase?" open the guide, follow t
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 The most common Git mistakes happen when engineers reach for the wrong tool not because they don't know it exists, but because they haven't internalized when to use it. These guides exist to close that gap.
 

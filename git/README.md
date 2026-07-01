@@ -64,9 +64,14 @@ git/
 ├── enterprise-workflows/    ← GitOps, release branching, compliance, monorepos
 ├── troubleshooting/         ← Field guide: 15 production failure scenarios
 │
-├── decision-guides/         ← Mermaid flowcharts: merge-or-rebase, reset-or-revert, and 4 more
+├── decision-guides/         ← Flowcharts: merge-or-rebase, SSH-vs-HTTPS, GitFlow-vs-TBD, and 9 total
 ├── case-studies/            ← 9 enterprise case studies with root cause and resolution
-└── production-incidents/    ← 5 P1/P2 incident playbooks: diagnosis, commands, prevention
+├── production-incidents/    ← 5 P1/P2 incident playbooks: diagnosis, commands, prevention
+│
+├── playbooks/               ← 9 operational runbooks (force push recovery, hotfix, migration, cleanup)
+├── labs/                    ← 8 hands-on practice labs with full setup, walkthrough, and cleanup
+├── interview-guide/         ← Interview prep: beginner → architecture (17 questions + scenario-based)
+└── architecture/            ← Git internals reference: objects, refs, storage, commit graph
 ```
 
 ---
@@ -97,9 +102,15 @@ git/
 15. [`troubleshooting/`](troubleshooting/) — 15 production failure scenarios
 
 ### Track 5 — Decision frameworks and real-world scenarios
-16. [`decision-guides/`](decision-guides/) — Flowcharts for merge-or-rebase, reset-or-revert, branching strategy selection, and 3 more daily decisions
+16. [`decision-guides/`](decision-guides/) — 9 flowcharts: merge-or-rebase, SSH-vs-HTTPS, GitFlow-vs-TBD, submodule-vs-subtree, and more
 17. [`case-studies/`](case-studies/) — 9 enterprise scenarios with problem, root cause, commands, and lessons learned
 18. [`production-incidents/`](production-incidents/) — 5 P1/P2 incident playbooks ready to use during active incidents
+
+### Track 6 — Practical skills and deep knowledge
+19. [`playbooks/`](playbooks/) — 9 operational runbooks for production scenarios (force push recovery, hotfix, disaster recovery)
+20. [`labs/`](labs/) — 8 hands-on labs with isolated environments: reflog recovery, bisect, interactive rebase, LFS, worktree
+21. [`interview-guide/`](interview-guide/) — Interview prep from beginner to architecture-level questions, with scenario-based answers
+22. [`architecture/`](architecture/) — Git internals deep dive: object model, refs, packfiles, commit graph, reachability
 
 ---
 

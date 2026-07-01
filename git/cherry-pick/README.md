@@ -309,7 +309,7 @@ A: A merge commit has two parents. `-m 1` tells cherry-pick to use the first par
 
 ---
 
-## Engineering Notes
+## Engineering Insight
 
 **Cherry-pick is a point solution for exceptions, not a substitute for a branching strategy.** The canonical use case is backporting a specific fix to a release branch that cannot be updated by merging. If you find yourself cherry-picking the same fix to 4 different release branches on a weekly basis, that is a signal that your release strategy needs to change.
 
