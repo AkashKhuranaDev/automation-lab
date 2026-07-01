@@ -1,6 +1,8 @@
 # Git Performance — Large Repositories, LFS, and Optimized Clones
 
 > **Related sections:** [`internals/`](../internals/) for packfile mechanics and GC; [`enterprise-workflows/`](../enterprise-workflows/) for monorepo patterns; [`troubleshooting/`](../troubleshooting/) for slow operation diagnosis.
+>
+> **Navigation:** [⌂ Index](../) | [← `security/`](../security/) | [`enterprise-workflows/` →](../enterprise-workflows/)
 
 ---
 
@@ -393,6 +395,20 @@ A: When you need full history for operations like `git bisect`, `git log` analys
 
 **Q: What happens if someone commits a 500 MB binary without LFS?**
 A: It enters the repository history permanently. Even if deleted in a subsequent commit, the blob exists in the object store and is cloned by everyone. It must be removed using `git filter-repo` and the history must be force-pushed — which disrupts everyone's local clones.
+
+---
+
+## Engineering Notes
+
+**`git maintenance` is the correct long-term answer for repository health.** `git gc` is a one-shot command. `git maintenance` is a scheduled background service (Git 2.31+) that keeps the repository healthy incrementally. Set it up on developer workstations and CI nodes and forget about manual GC.
+
+**Sparse checkout and blobless clones are the most impactful CI optimizations available today.** For repositories over 1 GB, combining `--filter=blob:none --sparse` with path-scoped checkout can reduce CI clone time from minutes to seconds. This is not a micro-optimization — it directly affects how many parallel CI jobs you can run and at what cost.
+
+**Profile before optimizing.** Run `git filter-repo --analyze` before making any performance decisions. The analysis report shows exactly what is consuming space and when it was added. Guessing at the cause of repository bloat leads to wasted effort.
+
+**`git gc --aggressive` is almost never the right answer.** It repacks everything using a more CPU-intensive algorithm, producing marginally smaller pack files at significant time cost. The regular `git gc` (or `git maintenance`) produces pack files that are good enough. Reserve `--aggressive` for one-time cleanups of extremely neglected repositories.
+
+**CI clone strategy should match the job's actual needs.** A linting job does not need LFS files or full commit history. A release tagging job needs full history for `git describe`. A model training job needs specific LFS objects. Design the checkout strategy per job type rather than using a single universal checkout configuration.
 
 ---
 

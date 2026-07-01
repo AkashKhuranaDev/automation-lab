@@ -1,6 +1,8 @@
 # Git Recovery — Reflog, Bisect, and Getting Back What You Lost
 
 > **Related sections:** [`internals/`](../internals/) explains why lost objects are recoverable; [`fundamentals/`](../fundamentals/) covers the three-tree model underlying reset mechanics; [`troubleshooting/`](../troubleshooting/) is the broader field guide for failures.
+>
+> **Navigation:** [⌂ Index](../) | [← `hooks/`](../hooks/) | [`security/` →](../security/)
 
 ---
 
@@ -373,6 +375,20 @@ A: `git bisect` performs a binary search through commit history to find the firs
 
 **Q: When is lost data in Git truly unrecoverable?**
 A: When the object has been removed by garbage collection after the reflog entry for it has expired. The default reflog expiry is 90 days, with pruning of unreferenced objects after 14 days. Running `git gc --prune=now` immediately after losing data removes the safety window. Uncommitted working directory changes after `git reset --hard` are also unrecoverable — they were never in the object store.
+
+---
+
+## Engineering Notes
+
+**The reflog is the recovery safety net. Understand it before you need it.** The reflog records every position HEAD and branch tips have pointed to. Most "lost" commits are trivially recoverable via `git reflog` within 90 days. Engineers who understand this are calm during incidents; those who don't are panicked.
+
+**Never run `git gc --prune=now` during an active recovery.** This permanently removes unreachable objects — the objects you are trying to recover. If you realize you've lost commits, stop all GC-triggering operations (no `git gc`, `git maintenance`, or automatic GC) immediately.
+
+**`git bisect run` is dramatically underused for regression diagnosis.** Manual bisect requires an engineer to test each step. `git bisect run` executes a test script automatically across the binary search. For a 1,000-commit search space, this reduces 10 bisect steps to a fully automated 10-minute run. The engineer only needs to write a script that exits 0 for good and non-zero for bad.
+
+**`git worktree` eliminates context switching during recovery.** If you need to diagnose an issue on a release branch without abandoning in-progress work on your feature branch, `git worktree add` checks out the release branch to a separate directory. Both workspaces share the same `.git/` — no extra clone required.
+
+**Document recovery procedures before incidents, not during them.** Under pressure, the wrong command is run. This is a known pattern. Have the `git reflog | grep`, `git stash apply`, and `git reset` commands written down and accessible. The production-incidents/ playbooks in this repository are an example of this.
 
 ---
 

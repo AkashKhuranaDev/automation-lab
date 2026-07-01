@@ -1,12 +1,30 @@
 # Git Cherry-Pick — Selective Commit Application
 
 > **Related sections:** [`merging/`](../merging/) when you want to bring in an entire branch; [`rebasing/`](../rebasing/) when you want to replay a series of commits; [`recovery/`](../recovery/) for recovering commits that need to be cherry-picked from a deleted branch; [`enterprise-workflows/`](../enterprise-workflows/) for cherry-pick in GitFlow hotfix workflows.
+>
+> **Navigation:** [⌂ Index](../) | [← `stash/`](../stash/) | [`tags/` →](../tags/)
 
 ---
 
 ## Overview
 
 Cherry-pick applies one or more specific commits from one branch to another, creating new commits with the same changes but different SHAs. It is a surgical tool for situations where you need a specific change without bringing along everything else in a branch.
+
+```mermaid
+gitGraph
+   commit id: "A"
+   commit id: "B"
+   branch release/2.3
+   commit id: "C: release baseline"
+   checkout main
+   commit id: "D: new feature"
+   commit id: "E: fix(iam): critical patch" type: HIGHLIGHT
+   commit id: "F: next feature"
+   checkout release/2.3
+   commit id: "E': same patch, new SHA" type: HIGHLIGHT
+```
+
+> `E'` on `release/2.3` has the identical diff as `E` on `main` but a **different SHA** — cherry-pick creates a new commit object, not a reference. The original `E` on `main` is unchanged.
 
 ---
 
@@ -288,6 +306,20 @@ A: Use `git log --cherry-pick --right-only main...release/2024-q3 --oneline`. Th
 
 **Q: You need to cherry-pick a merge commit. What is the `-m` flag for?**
 A: A merge commit has two parents. `-m 1` tells cherry-pick to use the first parent (the branch that was merged into, typically `main`) as the mainline for computing the diff. Without `-m`, cherry-pick doesn't know which parent to use and fails. `-m 1` is almost always the correct choice for a standard GitHub PR merge commit.
+
+---
+
+## Engineering Notes
+
+**Cherry-pick is a point solution for exceptions, not a substitute for a branching strategy.** The canonical use case is backporting a specific fix to a release branch that cannot be updated by merging. If you find yourself cherry-picking the same fix to 4 different release branches on a weekly basis, that is a signal that your release strategy needs to change.
+
+**`git log --cherry-pick --right-only origin/release-v2.3...main` is the backport audit command.** It shows commits on `main` that have no equivalent on the release branch. Run this before every release cut to catch fixes that were never backported. This single command has prevented multiple production incidents where a known fix was not deployed to the maintenance branch.
+
+**Cherry-pick preserves the original commit message but creates a new SHA.** This is important for traceability. Always append `(cherry-picked from <sha>)` or reference the source PR in the commit message — `git cherry-pick -x` does this automatically. Without it, the audit trail between release branches and `main` is broken.
+
+**A sequence of cherry-picks that reconstitutes 80% of `main` is a merge.** If you are regularly cherry-picking large numbers of commits to a branch, you should be merging (or rebasing) instead. Cherry-pick has higher cognitive overhead than merge and should be reserved for the cases where merge is genuinely inappropriate.
+
+**Conflicts during cherry-pick are more confusing than merge conflicts.** The conflict is between the cherry-picked commit's delta and the target branch's current state. The common ancestor may be very different from either. When a cherry-pick produces conflicts, prefer `git merge` with manual conflict resolution — the conflict semantics are clearer.
 
 ---
 

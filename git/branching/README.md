@@ -1,6 +1,8 @@
 # Git Branching — Strategy, Structure, and Enterprise Patterns
 
 > **Related sections:** [`merging/`](../merging/) for how branches are integrated; [`rebasing/`](../rebasing/) for updating branches from main; [`enterprise-workflows/`](../enterprise-workflows/) for how branch models connect to deployment pipelines; [`hooks/`](../hooks/) for enforcing branch naming with commit hooks.
+>
+> **Navigation:** [⌂ Index](../) | [← `fundamentals/`](../fundamentals/) | [`merging/` →](../merging/)
 
 ---
 
@@ -335,6 +337,20 @@ A: A branch is a mutable pointer — it moves forward with each new commit. A ta
 
 **Q: How would you enforce branch naming conventions across a team of 40 engineers?**
 A: Use a `commit-msg` or `pre-push` hook via the pre-commit framework for local enforcement. Add a GitHub Actions workflow that validates the PR branch name against the naming pattern and blocks merge if it does not conform. Document the convention in `CONTRIBUTING.md`.
+
+---
+
+## Engineering Notes
+
+**Choose a branching strategy based on team size and deployment frequency, not on what sounds sophisticated.** Trunk-based development works well for teams that deploy multiple times per day with good automated testing. GitFlow works well for teams with monthly release cycles and parallel support obligations. Using GitFlow for a team that wants to deploy daily is an organizational impediment, not a safety mechanism.
+
+**Long-lived branches are a smell, not a strategy.** A feature branch that lives for more than 3 days is accumulating merge debt. After a week, the merge cost starts exceeding the development cost. Teams that routinely have 3-week branches have a process problem that branching strategy alone cannot fix — feature flags and incremental delivery are the actual solution.
+
+**Branch protection rules on `main` are the baseline, not an advanced configuration.** Every production repository should have: require PRs, require status checks, no force push, no deletion, no bypass (including admins). These take 5 minutes to configure and prevent the most common categories of production incidents.
+
+**The internal representation of a branch (40-byte pointer) means branching is essentially free.** Unlike SVN branches (server-side copies), Git branches are local, instantaneous, and cost nothing. Use them liberally for experiments, prototypes, and multi-day tasks. Delete them aggressively after merge.
+
+**Naming conventions that include ticket numbers make branch management tractable.** `fix/INC-8847-rds-security-group` is unambiguous. `fix/rds` is not. At 50+ branches in a repository, disambiguation becomes critical for bulk operations like `git branch -d $(git branch | grep fix/)`. Include the ticket number.
 
 ---
 

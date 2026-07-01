@@ -1,6 +1,8 @@
 # Git Merging — Strategies, Tradeoffs, and Enterprise Decisions
 
 > **Related sections:** [`branching/`](../branching/) for how branch models determine merge strategy; [`rebasing/`](../rebasing/) for the alternative to merge for branch integration; [`cherry-pick/`](../cherry-pick/) for selective commit application across branches; [`enterprise-workflows/`](../enterprise-workflows/) for GitFlow merge conventions.
+>
+> **Navigation:** [⌂ Index](../) | [← `branching/`](../branching/) | [`rebasing/` →](../rebasing/)
 
 ---
 
@@ -338,6 +340,20 @@ A: Run `git revert -m 1 <merge-commit-sha>`. This creates a new commit that reve
 
 **Q: What is the difference between `git merge --ff-only` and `git merge --no-ff`?**
 A: `--ff-only` fails the merge if a fast-forward is not possible — useful for enforcing that feature branches are always rebased before merging. `--no-ff` forces a merge commit even when fast-forward is possible — useful for always leaving a record that a branch existed.
+
+---
+
+## Engineering Notes
+
+**The merge strategy debate (merge vs rebase) is mostly a question of what your `git log` should communicate.** Merge commits preserve branch topology — `git log --graph` shows where branches diverged and rejoined. Rebase produces a linear history where every commit is directly on `main`. Neither is objectively correct; choose based on what the team needs to see in `git log` during a production incident.
+
+**Enable `rerere` by default in teams with long-lived branches.** If the same conflict appears repeatedly (common in long-running release branches), `rerere` resolves it automatically after the first manual resolution. Run `git config --global rerere.enabled true` once and forget about it. This is one of the most underused Git features in enterprise teams.
+
+**Three-way merges are Git's superpower over simpler VCS systems.** By recording the common ancestor alongside both changed versions, Git can automatically resolve changes to different parts of the same file. Conflicts only occur when both sides modified the same lines. Understanding this makes conflict resolution less mysterious — you are looking at two genuine concurrent changes that Git cannot automatically combine.
+
+**`git log --merge` during conflict resolution shows exactly what caused the conflict.** This is the most useful diagnostic command during a complex merge conflict. It filters the log to only commits that touch conflicting files on either side, showing you exactly what each side was trying to accomplish.
+
+**Squash merges lose authorship traceability.** When a PR with 12 commits is squash-merged, the 12 individual commit authors and messages are collapsed into one. For open source or cross-team contributions, this erases the granular audit trail. Use squash merge for cleanup of messy work-in-progress history, not as a blanket policy.
 
 ---
 

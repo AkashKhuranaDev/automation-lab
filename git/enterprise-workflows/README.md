@@ -1,6 +1,8 @@
 # Git Enterprise Workflows — Team-Scale Patterns and Production Operations
 
 > **Related sections:** [`branching/`](../branching/) for branch model selection; [`hooks/`](../hooks/) for enforcement automation; [`security/`](../security/) for commit signing and access controls; [`performance/`](../performance/) for monorepo optimizations; [`recovery/`](../recovery/) for incident response.
+>
+> **Navigation:** [⌂ Index](../) | [← `performance/`](../performance/) | [`best-practices/` →](../best-practices/)
 
 ## Overview
 
@@ -305,6 +307,20 @@ A: Cut the hotfix branch from the tag that is currently in production — not fr
 
 **Q: In a regulated environment, how do you prove that a specific change went through proper review before reaching production?**
 A: The Git history + GitHub pull request audit trail. Each commit is traceable to an authenticated GitHub identity. PRs are required by branch protection — no direct push is possible. Required approvals are enforced. Status checks (CI, security scan) must pass. The PR ID, approvers, merge time, and commit SHA are all immutable in GitHub's audit log. The merge commit on `main` and the deployment tag together form the change record.
+
+---
+
+## Engineering Notes
+
+**Enterprise Git workflows are organizational solutions to coordination problems.** The technical mechanics of Git are simple. The hard problems are: who can approve what, how do changes move through environments, what is the audit trail, and what happens when things go wrong. The workflows in this section address these coordination problems — the Git commands are just the implementation.
+
+**Protected branch rules are organizational policy encoded in tooling.** "Engineers must get approval before merging" is a policy that can be enforced by culture (unreliable) or by branch protection rules (reliable). Encoding policy in tooling removes the burden from human enforcement and creates an automatic audit trail.
+
+**Environment promotion via Git tags is observable and reversible.** When a deployment pipeline promotes code by creating a tag (`v2024-q3.1-staging`, `v2024-q3.1-production`), every environment's deployed state is visible in `git tag -l` and every promotion event is a git event in the audit log. This is preferable to promotion by branch name (which is mutable) or by CI variable (which leaves no Git trace).
+
+**CODEOWNERS is a gatekeeping mechanism, not a blame assignment.** Teams often resist CODEOWNERS because it feels punitive. The correct framing is: "changes to IAM configuration require security team review" is a risk control, not a statement about trust. Define code ownership by risk surface, not by team pride.
+
+**The `git log` on your production branch is a deployment record.** Every merge commit represents a reviewed, approved, and CI-validated change. The committer is recorded. The approvers are in the PR audit trail. The deploy timestamp is derivable from the tag. Treat `git log main --graph` as your change management system, because for any team using GitHub Flow, it effectively is.
 
 ---
 

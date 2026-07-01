@@ -1,6 +1,8 @@
 # Git Internals — What Git Actually Stores and Why It Matters
 
 > **Related sections:** [`fundamentals/`](../fundamentals/) covers the three-tree model; [`recovery/`](../recovery/) uses reflog and object store knowledge for real recovery; [`performance/`](../performance/) covers packfile optimization and GC.
+>
+> **Navigation:** [⌂ Index](../) | [`fundamentals/` →](../fundamentals/)
 
 ---
 
@@ -8,7 +10,7 @@
 
 Every Git operation — commit, merge, rebase, reset — is a transformation on a small set of object types stored in `.git/objects/`. Engineers who understand this layer can diagnose any Git failure, recover any lost work, and make informed decisions about workflow design.
 
-This is not academic. It is the layer that explains why `git reset --hard` is dangerous, why rebasing changes SHAs, why force push breaks teammates, and why the reflog can recover work that appears permanently deleted.
+Knowing the object model is what separates an engineer who runs `git reflog` with understanding from one who runs it as cargo cult. It explains why `git reset --hard` is dangerous, why rebasing changes SHAs, why force push breaks teammates, and why the reflog can recover work that appears permanently deleted.
 
 ---
 
@@ -287,6 +289,20 @@ A: If two files have identical content, they will have identical blob SHAs. Git 
 | Assuming deleted branches are gone | They are recoverable via reflog until GC |
 | Treating SHA as a permanent identifier for a version | Rebasing changes SHAs; use tags for permanent references |
 | Ignoring `.git/objects/` disk growth | Large repos with no LFS or GC policy grow without bound |
+
+---
+
+## Engineering Notes
+
+**Understanding the object model pays dividends in recovery situations.** An engineer who knows that commits, trees, and blobs are all content-addressed objects in `.git/objects/` will immediately understand why deleted commits are recoverable via reflog, why the same file content in two places only occupies one object, and why rebase creates new commits rather than moving existing ones.
+
+**The SHA-1 to SHA-256 transition is already underway.** Git 2.29+ supports SHA-256 repositories (`--object-format=sha256`). GitHub support is coming. For new infrastructure that manages long-lived repositories, be aware that SHA-256 repositories are not backward-compatible with SHA-1 repositories.
+
+**Pack files are why cloning a repository with 100,000 commits is fast.** Git does not store one object file per commit. Loose objects are periodically consolidated into pack files with delta compression. Understanding this explains why `git count-objects -vH` shows a small `size-pack` even for large repos with good GC policies.
+
+**`packed-refs` is the reason `git tag -l` is instantaneous.** Without pack files for refs, listing 10,000 tags would require 10,000 filesystem stat calls. `packed-refs` consolidates them into a single file. Writing new refs still goes to individual files first — only GC or explicit `git pack-refs` consolidates them.
+
+**Never edit `.git/` contents directly unless you are writing tooling.** The object store, ref files, and index are implementation details that Git manages. Direct edits bypass safety mechanisms and can leave the repository in an inconsistent state that `git fsck` will flag.
 
 ---
 

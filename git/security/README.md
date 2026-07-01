@@ -1,6 +1,8 @@
 # Git Security — Protecting Repositories, Identities, and Supply Chains
 
 > **Related sections:** [`hooks/`](../hooks/) for local secrets scanning enforcement; [`best-practices/`](../best-practices/) for .gitignore and credential hygiene; [`enterprise-workflows/`](../enterprise-workflows/) for compliance and audit requirements.
+>
+> **Navigation:** [⌂ Index](../) | [← `recovery/`](../recovery/) | [`performance/` →](../performance/)
 
 ---
 
@@ -9,6 +11,35 @@
 Git repositories are a high-value target. They contain source code, infrastructure definitions, pipeline configurations, and — when security practices fail — credentials, API keys, private keys, and secrets that should never have been committed.
 
 This section covers the complete security surface: preventing secrets from entering repositories, verifying commit identity through signing, securing transport, and detecting supply chain risks.
+
+```mermaid
+flowchart TD
+    DEV["Developer Workstation"]
+    HOOK["pre-commit hook\ngitleaks scan"]
+    LOCAL["git commit\nLocal Repository"]
+    PUSH["git push"]
+    GH_SCAN["GitHub Push Protection\n+ Secret Scanning"]
+    REMOTE["Remote Repository"]
+    CI["CI Pipeline\ngitleaks check"]
+    ALERT["INCIDENT\nRotate credential\ngit filter-repo\nForce push"]
+
+    DEV --> HOOK
+    HOOK -->|"PASS"| LOCAL
+    HOOK -->|"FAIL: secret detected"| ALERT
+    LOCAL --> PUSH
+    PUSH --> GH_SCAN
+    GH_SCAN -->|"PASS"| REMOTE
+    GH_SCAN -->|"FAIL: known pattern"| ALERT
+    REMOTE --> CI
+    CI -->|"FAIL: secret in diff"| ALERT
+
+    style ALERT fill:#ff4444,color:#fff
+    style HOOK fill:#44aa44,color:#fff
+    style GH_SCAN fill:#4488ff,color:#fff
+    style CI fill:#4488ff,color:#fff
+```
+
+> Secrets prevention works in layers. Local hooks catch most issues. GitHub Push Protection blocks at push time. CI scanning is the last line. If all three fail, the incident playbook in [`production-incidents/P002`](../production-incidents/P002-secret-committed-to-public-repo.md) applies.
 
 ---
 
@@ -77,6 +108,7 @@ Git 2.34 added the ability to sign commits with an SSH key — the same key you 
 ```bash
 # Configure SSH signing
 git config --global gpg.format ssh
+# NOTE: SSH signing uses the PUBLIC key file path (unlike GPG which uses the key ID)
 git config --global user.signingkey ~/.ssh/id_ed25519_personal.pub
 git config --global commit.gpgsign true
 
@@ -410,6 +442,20 @@ A: SSH authentication verifies that a push came from someone who holds a specifi
 
 **Q: Why should PATs have minimum scope?**
 A: A PAT with `repo` scope can read, write, and delete all private repositories accessible to the user. If that token is leaked, the attacker has full access. A token scoped to `repo:read` on one specific repository limits the blast radius.
+
+---
+
+## Engineering Notes
+
+**Rotate credentials before cleaning Git history.** When a secret is committed to a repository, the instinct is to delete the commit and move on. The correct instinct is to rotate the credential immediately, then clean the history. Rotation invalidates the leaked credential in 30 seconds. History cleanup takes hours. Every second spent on history cleanup before rotation is a second the credential remains valid.
+
+**SSH commit signing is worth the setup cost.** GPG signing has historically been complex to set up and maintain. SSH commit signing (Git 2.34+) uses the same key material engineers already have for repository access. For infrastructure repositories where an audit trail matters, signed commits provide cryptographic proof of authorship that a compromised GitHub password cannot undermine.
+
+**CODEOWNERS is the most underused GitHub security feature.** It is a single file that enforces who must review changes to specific paths. For infrastructure repositories, requiring the security team to review changes to IAM, network, and secrets management directories is a control that takes 10 minutes to implement and eliminates an entire class of misconfiguration.
+
+**Fine-grained PATs over classic PATs.** Classic PATs grant broad access. Fine-grained PATs are scoped to specific repositories and specific permissions. Use fine-grained PATs for all new automation. Audit existing classic PATs and replace them.
+
+**`AddKeysToAgent yes` in SSH config is required on macOS.** Without it, the SSH key is not loaded into the agent across reboots, and `git push` will prompt for a passphrase in scripts and CI contexts. This is a macOS-specific requirement that catches engineers who set up SSH correctly on Linux but not on their Mac.
 
 ---
 

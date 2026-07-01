@@ -1,10 +1,12 @@
 # Git Stash — Managing Work in Progress
 
 > **Related sections:** [`fundamentals/`](../fundamentals/) for the three-tree model that explains where stash state lives; [`recovery/`](../recovery/) for recovering dropped stash; [`branching/`](../branching/) for when to stash vs create a quick branch.
+>
+> **Navigation:** [⌂ Index](../) | [← `rebasing/`](../rebasing/) | [`cherry-pick/` →](../cherry-pick/)
 
 ## Overview
 
-Stash saves uncommitted changes (staged and unstaged) to a temporary storage area so you can switch context without committing incomplete work. It is a precision tool — not a dumping ground.
+Stash saves uncommitted changes (staged and unstaged) to a temporary storage area so you can switch context without committing incomplete work. Used correctly, it is the right tool for temporary interruptions. Used casually, it becomes a graveyard of forgotten work-in-progress.
 
 Most engineers use `git stash` and `git stash pop` and stop there. This document covers the full capability and the discipline needed to use it safely in a team environment.
 
@@ -41,6 +43,26 @@ Stash is implemented as a set of commits stored under `refs/stash`. When you run
 1. A commit for the index state (staged changes)
 2. A commit for the working directory state (unstaged changes)
 3. A merge commit combining them, stored as the new `refs/stash` tip
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> DirtyWorkTree: working on feature
+    DirtyWorkTree --> CleanWorkTree: git stash
+    CleanWorkTree --> [*]: switch branch / run test
+
+    state "Stash Stack" as SS {
+        s0: stash@{0} newest
+        s1: stash@{1}
+        s2: stash@{2} oldest
+        s0 --> s1
+        s1 --> s2
+    }
+
+    CleanWorkTree --> SS: stash saved here
+    SS --> DirtyWorkTree: git stash pop / apply
+    SS --> [*]: git stash drop (recoverable until GC)
+```
 
 This is why `git fsck --unreachable` can find dropped stashes — the commit objects remain in `.git/objects/` until GC runs. See [`recovery/`](../recovery/) for the full recovery workflow.
 
@@ -276,6 +298,20 @@ A: Use `git stash push <file1> <file2>` to stash specific paths. This leaves all
 
 **Q: You accidentally dropped a stash with `git stash drop`. Is it recoverable?**
 A: Yes, if GC has not run. The stash commit objects still exist as unreachable objects. Run `git fsck --unreachable` to find unreachable commits, inspect each with `git show <sha>`, and apply the correct one with `git stash apply <sha>`. See the [`recovery/`](../recovery/) section for the full workflow.
+
+---
+
+## Engineering Notes
+
+**A stash older than a day is probably a branch.** If you are saving work in a stash with the intention of returning to it later, that work deserves a branch with a meaningful name. Stashes are not browsable in the standard `git log`, have no commit message by default, and are easy to forget. Name them if you must use them: `git stash push -m "WIP: auth token refresh logic"`.
+
+**`git stash pop` and `git stash apply` are not the same.** `pop` removes the stash entry after applying it (can leave you without a recovery copy if apply produces conflicts). `apply` leaves the stash entry intact. Prefer `apply` in situations where you are uncertain the stash will apply cleanly.
+
+**`git stash --staged` (Git 2.35+) is the correct tool for mid-hunk saves.** When you have staged half a feature and need to interrupt, `--staged` creates a stash of only the staged content. This is more precise than stashing everything and more useful than a WIP commit.
+
+**Every `git stash drop` is recoverable until GC runs.** The commit objects persist in `.git/objects/` as unreachable objects. `git fsck --unreachable | grep commit` will list them, and `git stash apply <sha>` restores the work. The default GC window is 14 days for unreachable objects, 90 days for reflog entries. Running `git gc --prune=now` immediately after a drop is the only way to make recovery impossible.
+
+**In CI environments, never use stash.** CI environments are ephemeral. There is no state to preserve between runs, no interrupted work, and no context switching. Stash is a developer workflow tool. Any script that uses `git stash` in CI is a red flag.
 
 ---
 

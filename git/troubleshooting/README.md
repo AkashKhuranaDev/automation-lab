@@ -1,10 +1,45 @@
 # Git Troubleshooting — Diagnosing and Recovering from Common Failures
 
 > **Related sections:** [`recovery/`](../recovery/) for deep recovery workflows (reflog, bisect, lost stash); [`security/`](../security/) for credential and authentication issues; [`performance/`](../performance/) for slow operation diagnosis; [`internals/`](../internals/) for understanding why failures occur at the object level.
+>
+> **Navigation:** [⌂ Index](../) | [← `best-practices/`](../best-practices/) | [`decision-guides/` →](../decision-guides/)
 
 ## Overview
 
 This is a field guide for Git problems in production environments. Every scenario here has been encountered in real engineering teams. The goal is not to explain theory — it is to give you the exact commands to diagnose and recover.
+
+```mermaid
+flowchart TD
+    START["Git problem encountered\ngit status && git log --oneline --graph --all | head -20"]
+    Q1{"Conflict markers\n<<<< in files?"}
+    Q2{"Lost commits or\n'detached HEAD'?"}
+    Q3{"CI pipeline\ngit operation failing?"}
+    Q4{"Repository\nvery slow?"}
+    Q5{"Secret committed\nto repository?"}
+    Q6{"Wrong commit merged\nto shared branch?"}
+
+    CONFLICT["Resolve conflicts\nSee merging/ and Scenario 8\ngit mergetool / git rerere"]
+    REFLOG["Check reflog\ngit reflog | head -30\nSee recovery/ and Scenario 1-3"]
+    CI_FIX["See P005 incident playbook\nand Scenario 11-12\nAuth / LFS / safe.directory"]
+    PERF["See performance/\ngit filter-repo --analyze\nSparse checkout / LFS"]
+    SEC["Rotate credential FIRST\nThen git filter-repo\nSee CS-03 / P002"]
+    REVERT["git revert -m 1 SHA\nDo NOT git reset --hard\non a shared branch"]
+    SCENARIOS["Check scenarios 4-15\nin this troubleshooting guide"]
+
+    START --> Q1
+    Q1 -->|"Yes"| CONFLICT
+    Q1 -->|"No"| Q2
+    Q2 -->|"Yes"| REFLOG
+    Q2 -->|"No"| Q3
+    Q3 -->|"Yes"| CI_FIX
+    Q3 -->|"No"| Q4
+    Q4 -->|"Yes"| PERF
+    Q4 -->|"No"| Q5
+    Q5 -->|"Yes"| SEC
+    Q5 -->|"No"| Q6
+    Q6 -->|"Yes, already pushed"| REVERT
+    Q6 -->|"No"| SCENARIOS
+```
 
 ---
 
@@ -461,6 +496,20 @@ A: Ask when they last committed. If they committed: `git reflog` will show their
 
 **Q: You need to find which specific commit introduced a memory leak. There are 300 commits since the last known-good state. How do you approach it?**
 A: Use `git bisect`. Mark the current state as bad, mark the last known-good release tag as good, and provide a test script that exercises the memory path and exits with the appropriate code. `git bisect run` performs binary search — 300 commits requires only 8-9 iterations to identify the culprit.
+
+---
+
+## Engineering Notes
+
+**Most Git emergencies feel worse than they are.** The vast majority of "I've lost my work" situations are recoverable via reflog within 90 days. The first 30 seconds of a Git emergency should be spent not running commands, but identifying whether the work was ever committed. Uncommitted work in the working directory after a `git reset --hard` is genuinely gone. Committed work almost never is.
+
+**`git filter-repo` is the only supported tool for history rewriting.** `git filter-branch` was deprecated in Git 2.24. It is slower by orders of magnitude and its behavior is full of edge cases. If you find a tutorial or runbook that uses `git filter-branch`, it is outdated. Use `git filter-repo`.
+
+**Start every troubleshooting session with `git status` and `git log --oneline -10`.** These two commands establish your bearings — where HEAD is, what is staged, what is in the working tree, and recent history. Many problems are immediately visible. Jumping to aggressive recovery commands without this orientation is how engineers make situations worse.
+
+**The safest recovery strategy is always to create a branch before doing anything.** Before running `git reset`, `git rebase`, or any other potentially destructive command: `git branch backup-$(date +%s)`. This costs nothing and gives you a named pointer to the current state. If the operation goes wrong, `git reset --hard backup-<timestamp>` puts you back.
+
+**Read error messages fully before running commands.** Git error messages are unusually informative — they frequently contain the exact command to resolve the issue. Engineers who run commands reflexively without reading the full error message often bypass Git's own recovery suggestions and create new problems.
 
 ---
 

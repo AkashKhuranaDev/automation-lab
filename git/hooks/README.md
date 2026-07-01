@@ -1,6 +1,8 @@
 # Git Hooks — Automating Quality Gates at the Commit Level
 
 > **Related sections:** [`security/`](../security/) for secrets scanning hooks; [`best-practices/`](../best-practices/) for commit message standards that hooks enforce; [`enterprise-workflows/`](../enterprise-workflows/) for CI vs hooks decision making.
+>
+> **Navigation:** [⌂ Index](../) | [← `tags/`](../tags/) | [`recovery/` →](../recovery/)
 
 ---
 
@@ -376,6 +378,20 @@ A: Client-side hooks can be bypassed with `git commit --no-verify`. To enforce p
 
 **Q: Why doesn't `.git/hooks/` propagate when you clone a repository?**
 A: The `.git/` directory is local and not tracked. It is never cloned or pushed. To distribute hooks, use the pre-commit framework with a `.pre-commit-config.yaml` file committed to the repository, or use a `Makefile`/`setup` script that installs hooks on first run.
+
+---
+
+## Engineering Notes
+
+**Pre-commit hooks are the closest thing to a mandatory code review that does not require a human.** A well-configured `pre-commit` hook stack (linting, secrets scanning, commit message format) catches the most common defects before they reach the remote. The time cost is seconds per commit, paid once by the author, versus the cost of a review cycle or a production incident.
+
+**The pre-commit framework is superior to hand-rolled hooks for team environments.** Hook scripts in `.git/hooks/` are not versioned, not distributed, and not reproducible. The pre-commit framework installs hooks from a versioned `.pre-commit-config.yaml` that is committed to the repository. Every engineer runs the same hooks at the same version.
+
+**Secrets scanning hooks are non-negotiable.** A `pre-commit` gitleaks check costs 0.3 seconds. A secret committed to a public repository costs hours of incident response, credential rotation, and blast radius assessment. The cost-benefit ratio is not debatable.
+
+**Test hooks before deploying them to the team.** A hook that produces false positives will be bypassed with `--no-verify` and never used again. Test against representative real commits, tune the configuration, and pilot with a small group before rolling out org-wide.
+
+**`post-checkout` and `post-merge` hooks are underused.** Most teams only use `pre-commit` and `commit-msg`. Post-checkout hooks can automatically run dependency installation when switching branches, keeping developer environments in sync without manual intervention.
 
 ---
 

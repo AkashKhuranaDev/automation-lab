@@ -16,6 +16,7 @@ If you need a beginner introduction, start with the [Pro Git book](https://git-s
 | pre-commit | Team-wide hook distribution | `pip install pre-commit` |
 | git-sizer | Large repository diagnosis | `brew install git-sizer` |
 | GPG | Commit and tag signing | `brew install gnupg` |
+| GitHub CLI (`gh`) | Branch/PR automation in aliases | `brew install gh` |
 
 > Cross-references: Each section links to related sections. `hooks/` links to `security/` for secrets scanning; `recovery/` links to `internals/` for reflog mechanics; `enterprise-workflows/` links to all four of the above.
 
@@ -61,25 +62,12 @@ git/
 │
 ├── best-practices/          ← Commit standards, gitignore, gitattributes, hygiene
 ├── enterprise-workflows/    ← GitOps, release branching, compliance, monorepos
-└── troubleshooting/         ← Field guide: 15 production failure scenarios
+├── troubleshooting/         ← Field guide: 15 production failure scenarios
+│
+├── decision-guides/         ← Mermaid flowcharts: merge-or-rebase, reset-or-revert, and 4 more
+├── case-studies/            ← 9 enterprise case studies with root cause and resolution
+└── production-incidents/    ← 5 P1/P2 incident playbooks: diagnosis, commands, prevention
 ```
-
----
-
-## Engineering Philosophy
-
-Git is an engineering communication tool. The commit history is a conversation between the engineer who wrote the code and every engineer who maintains it after them.
-
-| Principle | In practice |
-|---|---|
-| Every commit should be deployable | A broken commit on a shared branch blocks the entire team |
-| Message explains *why*, diff explains *what* | Future readers read messages to understand decisions |
-| Branch model must match the deployment model | Trunk-based for daily deploys; release branches for versioned products |
-| Rebase cleans history, merge preserves it | Choose based on audit requirements |
-| Force push to shared branches is a production incident | It rewrites history others have based work on |
-| The reflog is your recovery mechanism | Almost nothing is permanently lost in Git |
-| Tags are immutable release references | Never move a tag that has been deployed against |
-| Branch protection is not optional | In any team or regulated environment, protect `main` |
 
 ---
 
@@ -107,6 +95,11 @@ Git is an engineering communication tool. The commit history is a conversation b
 13. [`enterprise-workflows/`](enterprise-workflows/) — GitOps, compliance, incident response
 14. [`best-practices/`](best-practices/) — Standards, gitignore, gitattributes
 15. [`troubleshooting/`](troubleshooting/) — 15 production failure scenarios
+
+### Track 5 — Decision frameworks and real-world scenarios
+16. [`decision-guides/`](decision-guides/) — Flowcharts for merge-or-rebase, reset-or-revert, branching strategy selection, and 3 more daily decisions
+17. [`case-studies/`](case-studies/) — 9 enterprise scenarios with problem, root cause, commands, and lessons learned
+18. [`production-incidents/`](production-incidents/) — 5 P1/P2 incident playbooks ready to use during active incidents
 
 ---
 

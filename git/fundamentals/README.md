@@ -1,6 +1,8 @@
 # Git Fundamentals — The Three Trees and How Git Thinks
 
 > **Related sections:** [`internals/`](../internals/) covers object storage, packfiles and SHA mechanics; [`recovery/`](../recovery/) applies reflog knowledge to real failure recovery; [`rebasing/`](../rebasing/) depends on understanding how HEAD and refs move.
+>
+> **Navigation:** [⌂ Index](../) | [← `internals/`](../internals/) | [`branching/` →](../branching/)
 
 ---
 
@@ -323,6 +325,20 @@ A: Detached HEAD occurs when HEAD points directly to a commit SHA rather than to
 
 **Q: Why does `git add .` make commit history harder to maintain?**
 A: It stages all changes indiscriminately, including unrelated modifications. This produces commits that mix multiple concerns, making it harder to review, revert, or cherry-pick specific changes later. `git add -p` allows staging by hunk for atomic, intention-revealing commits.
+
+---
+
+## Engineering Notes
+
+**The three-tree model is the single concept that unblocks most Git confusion.** Every question of "why did that happen" or "how do I undo this" becomes answerable once an engineer understands that Git maintains three separate states and that each command moves changes between them deliberately.
+
+**`git switch` and `git restore` are the intentional split of `git checkout`.** The Git maintainers recognized that `checkout` did two conceptually different things (switch branches, restore files) and separated them in Git 2.23. Prefer the new commands in scripts and documentation — they communicate intent clearly and are less error-prone.
+
+**`git status --short` in scripts, `git status` for humans.** The porcelain output (`--short`) is stable across Git versions. The default output changes between versions. Any script that parses `git status` output should use `--short` or `--porcelain`.
+
+**Commit message quality is a long-term investment.** A well-written commit message is read once when written and many times over the lifetime of a codebase. The 50/72 rule (50-char subject, 72-char body) is widely supported by tooling and should be considered a hard constraint, not a guideline.
+
+**`git add -p` should be the default, not `git add .`.** Reviewing every hunk before staging catches accidental debug statements, console logs, and unrelated changes that would otherwise pollute the commit. The discipline of reviewing what you stage is the same discipline as reviewing what you deploy.
 
 ---
 

@@ -1,6 +1,8 @@
 # Git Rebasing — History Rewriting with Intent
 
 > **Related sections:** [`merging/`](../merging/) for when merge is the right choice over rebase; [`cherry-pick/`](../cherry-pick/) for applying specific commits rather than replaying a whole branch; [`recovery/`](../recovery/) for recovering from a rebase that went wrong; [`fundamentals/`](../fundamentals/) for understanding why rebasing changes commit SHAs.
+>
+> **Navigation:** [⌂ Index](../) | [← `merging/`](../merging/) | [`stash/` →](../stash/)
 
 ---
 
@@ -357,6 +359,20 @@ A: Use `git rebase -i origin/main`. In the interactive editor, mark the first me
 
 **Q: What is the difference between `squash` and `fixup` in interactive rebase?**
 A: Both merge the commit into the previous one. `squash` opens the editor so you can compose a new combined message. `fixup` discards the commit's message entirely and uses only the previous commit's message. Use `fixup` for typo fixes and review corrections that add no information to the commit message.
+
+---
+
+## Engineering Notes
+
+**Rebase is a local history rewriting tool, not a team collaboration tool.** The rule "never rebase shared branches" exists because rebase creates new commits with new SHAs. Anyone else working from the original commits will have a divergent history that cannot be reconciled without force-pushing. On your private feature branch, rebase freely. On any branch that other engineers have fetched, do not rebase.
+
+**Interactive rebase is the most powerful pre-PR cleanup tool available.** A branch with 8 commits of WIP history (`fix typo`, `fix typo again`, `actually fix it`) should be rebased to 1-3 clean commits before opening a PR. This is not vanity — it makes the PR review faster and the `git log` on `main` more useful during future debugging.
+
+**`git rebase --exec` is underused for pre-push validation.** Running `git rebase --exec 'make test' origin/main` ensures every individual commit in your branch passes the test suite, not just the final one. This matters for bisect — a broken intermediate commit causes `git bisect run` to fail incorrectly.
+
+**The `--autosquash` workflow (`commit --fixup` + `rebase -i --autosquash`) deserves to be standard practice.** When responding to review feedback, `git commit --fixup=<original-sha>` creates a fixup commit that is automatically squashed into the right place during interactive rebase. This keeps the PR review history clean and eliminates manual squashing.
+
+**Rebase conflicts are easier than merge conflicts in one respect.** In a merge, all conflicts appear at once. In a rebase, conflicts appear one commit at a time. Each conflict is smaller and easier to reason about because you are applying one commit's worth of changes at a time.
 
 ---
 

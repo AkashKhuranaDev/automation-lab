@@ -1,10 +1,28 @@
 # Git Tags — Release Management and Versioning
 
 > **Related sections:** [`enterprise-workflows/`](../enterprise-workflows/) for release branching strategies; [`security/`](../security/) for GPG tag signing; [`hooks/`](../hooks/) for CI/CD trigger patterns based on tags; [`branching/`](../branching/) for how tags relate to release branches.
+>
+> **Navigation:** [⌂ Index](../) | [← `cherry-pick/`](../cherry-pick/) | [`hooks/` →](../hooks/)
 
 ## Overview
 
 Tags are permanent references to specific commits. Unlike branches, they do not move when new commits are added. They are the correct mechanism for marking releases, milestones, and auditable snapshots of your codebase.
+
+```mermaid
+gitGraph
+   commit id: "chore: bump deps"
+   commit id: "feat: add auth module"
+   commit id: "fix: token refresh" tag: "v1.0.0"
+   commit id: "feat: add reporting"
+   commit id: "fix: csv export edge case" tag: "v1.1.0"
+   branch hotfix/sec-001
+   commit id: "fix(auth): rotate session key" tag: "v1.1.1"
+   checkout main
+   merge hotfix/sec-001 id: "Merge hotfix"
+   commit id: "feat: dashboard v2" tag: "v2.0.0-rc.1"
+```
+
+> Tags (`v1.0.0`, `v1.1.0`, `v1.1.1`, `v2.0.0-rc.1`) are fixed pointers. `main` moves forward; tags never do.
 
 ---
 
@@ -349,6 +367,20 @@ A: In GitHub Actions: `on: push: tags: ['v*.*.*']`. This triggers only when a pu
 
 **Q: A tag was pushed to the wrong commit. How do you fix it?**
 A: Recreate it: `git tag -d v1.2.0` locally, `git push origin :refs/tags/v1.2.0` to delete remotely, then `git tag -a v1.2.0 <correct-sha>` and `git push origin v1.2.0`. Coordinate with the team — clients or CI systems may have already pulled the old tag. If the tag was signed and published in a release, update the GitHub Release as well.
+
+---
+
+## Engineering Notes
+
+**Lightweight tags are for local bookmarks; annotated tags are for releases.** An annotated tag (`git tag -a`) creates a tag object in the Git database with a tagger identity, timestamp, and message. This is what `git describe` uses to calculate distances. A lightweight tag is just a pointer — no metadata, no object. Use annotated tags for anything that goes to production.
+
+**Tag before you deploy, not after.** The production tag is a deployment artifact, not a historical marker. If you tag the commit after deploying it, you've lost the ability to reproduce exactly what was deployed during the gap. Tag the commit, then deploy the tag. The CI/CD system should deploy from the tag, not from a branch.
+
+**`git tag -l` sorts alphabetically, not by version.** `v1.9.0` sorts after `v1.10.0` alphabetically because `9 > 1` lexicographically. Use `git tag -l --sort=-version:refname` for correct semantic version ordering, or `git tag -l | sort -V`.
+
+**Immutability of tags in production is critical.** Deleting and recreating a tag (`git tag -f`) is a destructive operation for anyone who has already fetched the old tag. They will not automatically receive the new one. For production release tags, treat them as immutable — publish a new tag rather than moving an existing one.
+
+**`git describe` is the basis of version strings in many release pipelines.** Understanding its output format (`v1.2.0-14-gab1c2d3`) — base tag, commits since tag, abbreviated SHA — is important for interpreting artifact version strings and tracing a deployed version back to its source commit.
 
 ---
 

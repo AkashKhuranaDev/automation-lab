@@ -1,6 +1,8 @@
 # Git Best Practices — Enterprise Standards for Production Teams
 
 > **Related sections:** [`hooks/`](../hooks/) for automating enforcement of these standards; [`security/`](../security/) for secrets prevention and GPG signing; [`enterprise-workflows/`](../enterprise-workflows/) for how these practices apply within team branching models; [`troubleshooting/`](../troubleshooting/) when practices are not followed.
+>
+> **Navigation:** [⌂ Index](../) | [← `enterprise-workflows/`](../enterprise-workflows/) | [`troubleshooting/` →](../troubleshooting/)
 
 ## Overview
 
@@ -15,12 +17,34 @@ A commit message is engineering documentation written in the moment when context
 ### Conventional Commits format
 
 ```
-<type>(<scope>): <short description>
+type(scope): short description   ← Line 1: ≤50 chars, imperative mood
+                                 ← Line 2: BLANK (required)
+Body explains WHY, not what.     ← Line 3+: ≤72 chars/line
+Context, tradeoffs, references.
 
-[optional body]
-
-[optional footer(s)]
+Closes #123                      ← Footer: issue refs, breaking changes
 ```
+
+```mermaid
+flowchart TB
+    subgraph LINE1["Line 1 — Subject (≤50 chars)"]
+        direction LR
+        TYPE["type\n(feat|fix|docs|chore|ci|perf|refactor)"] --> COLON[":"] --> DESC["short description\nimperative mood\ne.g. 'add', not 'added'"]
+    end
+    BLANK["← blank line required"]
+    subgraph BODY["Lines 3+ — Body (72 chars/line)"]
+        direction TB
+        WHY["Explain WHY, not what\nContext, tradeoffs, alternatives considered\nReference the ticket/issue"]
+    end
+    subgraph FOOTER["Footer"]
+        direction TB
+        FOOT["BREAKING CHANGE: description\nCloses #123 / Fixes JIRA-456"]
+    end
+
+    LINE1 --> BLANK --> BODY --> FOOTER
+```
+
+> **Rule:** `type(scope): description` on line 1. Blank line. Body from line 3. Footer (Breaking Changes, issue refs) last.
 
 | Type | When to use |
 |---|---|
@@ -284,6 +308,20 @@ A: `.gitignore` controls what Git tracks at all — files listed there are never
 
 **Q: Why is committing a secret to Git such a serious issue, even if it is deleted in the next commit?**
 A: The secret still exists in the Git object store and is visible in the history. Anyone who cloned the repository between the bad commit and the deletion still has the secret locally. GitHub scans repositories and notifies secret owners (AWS, GCP, etc.) even before you notice. Removal requires `git filter-repo` to rewrite history and force-push — disrupting all existing clones. The only safe resolution is to rotate the secret immediately, regardless of cleanup.
+
+---
+
+## Engineering Notes
+
+**Best practices are not a checklist; they are defaults that must be actively maintained.** Conventional commits, atomic commits, and branch protection rules are all easy to configure once. The challenge is maintaining them as teams change and processes drift. Schedule a quarterly review of your Git practices the same way you schedule dependency updates.
+
+**Atomic commits are the single most impactful commit discipline for infrastructure teams.** A Terraform commit that modifies networking, IAM, and compute simultaneously cannot be partially reverted. If the compute change caused an outage, you need to revert everything or craft a surgical forward-fix. An atomic commit that changes only networking can be reverted in 30 seconds.
+
+**Conventional commits enable automatic changelog generation.** `feat:`, `fix:`, `docs:`, `chore:` prefixes are machine-parseable. Tools like `semantic-release`, `conventional-changelog`, and `release-please` use these prefixes to automatically determine the next version number and generate release notes. This is not a formatting preference — it is infrastructure for your release pipeline.
+
+**`.gitignore` should be repository-specific, not global.** A global `.gitignore` on an engineer's machine hides ignores from the repository. Other contributors, CI, and production environments do not have that global file. Repository-level `.gitignore` is version-controlled and applies everywhere the repository is checked out.
+
+**Code review is a Git practice.** Branch protection rules that require PR approval are not bureaucracy — they are the mechanism that ensures every change to production infrastructure was seen by at least one other engineer. The Git history is also the audit trail. Every merge commit is a record of who approved what and when.
 
 ---
 
