@@ -1,5 +1,9 @@
 # Git Cherry-Pick — Selective Commit Application
 
+> **Related sections:** [`merging/`](../merging/) when you want to bring in an entire branch; [`rebasing/`](../rebasing/) when you want to replay a series of commits; [`recovery/`](../recovery/) for recovering commits that need to be cherry-picked from a deleted branch; [`enterprise-workflows/`](../enterprise-workflows/) for cherry-pick in GitFlow hotfix workflows.
+
+---
+
 ## Overview
 
 Cherry-pick applies one or more specific commits from one branch to another, creating new commits with the same changes but different SHAs. It is a surgical tool for situations where you need a specific change without bringing along everything else in a branch.
@@ -28,7 +32,27 @@ Cherry-pick applies one or more specific commits from one branch to another, cre
 
 - When the full branch history needs to be integrated — use merge instead
 - As a habit to avoid dealing with merge strategy decisions — it creates history debt
-- When the same commit is cherry-picked into multiple branches repeatedly — this creates duplicate history that is painful to reconcile later
+- When the same commit is cherry-picked into more than 2 branches repeatedly — this signals that your branch model is wrong. The same fix appearing in 4 release branches as 4 separate commits makes `git log` and `git blame` misleading
+- When you cannot identify exactly which commit introduced a change — use `git log --cherry` first
+
+---
+
+## Finding Commits Not Yet Cherry-Picked
+
+Before backporting to a release branch, verify which commits from `main` have not yet been applied:
+
+```bash
+# Show commits in main that are NOT yet in release/2024-q3
+# (using symmetric difference: commits in main but not release/2024-q3)
+git log --cherry-pick --right-only main...release/2024-q3 --oneline
+# abc1234 fix(iam): correct role trust policy
+# def5678 fix(security): rotate compromised key
+
+# The inverse: what release/2024-q3 has that main does not
+git log --cherry-pick --left-only main...release/2024-q3 --oneline
+```
+
+`--cherry-pick` filters out commits that have equivalent patches on both sides — i.e., commits that were already cherry-picked. This prevents double-applying a fix and getting a confusing "nothing to commit" result.
 
 ---
 
@@ -84,6 +108,17 @@ git cherry-pick --no-commit abc1234
 # Applies the diff to the staging area without creating a commit
 # Useful when you want to combine multiple cherry-picks into one commit
 ```
+
+---
+
+### Cherry-pick with signoff (for regulated projects)
+
+```bash
+git cherry-pick --signoff abc1234
+# Appends: Signed-off-by: Akash Khurana <akash@example.com>
+```
+
+Required in projects following the Developer Certificate of Origin (DCO) process — common in Linux kernel contributions and some regulated enterprise environments.
 
 ---
 
@@ -234,6 +269,25 @@ The change from that commit is already present on the current branch (from a pre
 ```bash
 git cherry-pick --skip
 ```
+
+---
+
+## Interview Questions
+
+**Q: When would you use cherry-pick over merge or rebase?**
+A: Cherry-pick when you need to apply a specific fix to a different branch without bringing in other work. Classic example: a security fix is committed to `main`. You need it in the `release/1.4` branch immediately. You cherry-pick just that commit rather than merging all of `main` into the release branch.
+
+**Q: You cherry-pick a commit and get a conflict. How do you resolve it?**
+A: Resolve the conflict files normally, then `git add <resolved-files>`, then `git cherry-pick --continue`. If you want to abandon: `git cherry-pick --abort`. If the change is no longer applicable, use `--skip` to skip that specific commit and continue the range.
+
+**Q: What happens to the original commit SHA when you cherry-pick?**
+A: Cherry-pick creates a brand new commit object with a new SHA. The content is the same (subject to conflict resolution), but the parent is different — the cherry-picked commit's parent is the target branch tip, not the original parent. The original commit still exists on the source branch unchanged.
+
+**Q: How do you determine which commits from `main` have not yet been backported to a release branch?**
+A: Use `git log --cherry-pick --right-only main...release/2024-q3 --oneline`. The `--cherry-pick` flag filters out commits whose patches already exist on the other side, so only genuinely un-backported commits appear.
+
+**Q: You need to cherry-pick a merge commit. What is the `-m` flag for?**
+A: A merge commit has two parents. `-m 1` tells cherry-pick to use the first parent (the branch that was merged into, typically `main`) as the mainline for computing the diff. Without `-m`, cherry-pick doesn't know which parent to use and fails. `-m 1` is almost always the correct choice for a standard GitHub PR merge commit.
 
 ---
 

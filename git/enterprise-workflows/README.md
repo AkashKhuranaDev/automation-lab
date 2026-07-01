@@ -1,5 +1,7 @@
 # Git Enterprise Workflows — Team-Scale Patterns and Production Operations
 
+> **Related sections:** [`branching/`](../branching/) for branch model selection; [`hooks/`](../hooks/) for enforcement automation; [`security/`](../security/) for commit signing and access controls; [`performance/`](../performance/) for monorepo optimizations; [`recovery/`](../recovery/) for incident response.
+
 ## Overview
 
 Individual Git skills become enterprise engineering when applied with discipline across teams, pipelines, and regulated environments. This document covers the patterns used in Platform Engineering, SRE, and DevSecOps contexts — where Git is not just version control but the control plane for infrastructure and deployment.
@@ -45,12 +47,12 @@ feature/INFRA-1042 → main → staging tag → production tag
 gitGraph
    commit id: "base"
    branch feature/INFRA-1042
-   commit id: "vpc module"
-   commit id: "eks cluster"
+   commit id: "vpc-module"
+   commit id: "eks-cluster"
    checkout main
-   merge feature/INFRA-1042 id: "PR merge"
-   commit id: "v1.2.0-staging" tag: "v1.2.0-rc.1"
-   commit id: "v1.2.0-prod" tag: "v1.2.0"
+   merge feature/INFRA-1042 id: "PR-merge"
+   commit id: "staging-deploy" tag: "v1.2.0-rc.1"
+   commit id: "prod-deploy" tag: "v1.2.0"
 ```
 
 Environments are not branches. Environments are controlled by tags and pipeline configuration. `main` represents desired state. Tags control which state reaches which environment.
@@ -145,11 +147,25 @@ In regulated environments (SOC 2, ISO 27001, PCI-DSS, FedRAMP), Git history is a
 
 | Requirement | Git implementation |
 |---|---|
-| Every change traceable to an identity | Signed commits or enforced GitHub login |
+| Every change traceable to an identity | Signed commits (`commit.gpgsign true`) or enforced GitHub login |
 | Changes reviewed before deployment | Branch protection — required PR approvals |
 | Change records with ticket references | Commit message policy + PR template |
 | No unauthorized direct changes to production config | Branch protection — no direct push to `main` |
 | Change history is immutable | No force push to `main` or `release/*` |
+| Sensitive files require designated reviewer | CODEOWNERS — see [`security/`](../security/) |
+
+### CODEOWNERS for compliance
+
+```bash
+# .github/CODEOWNERS
+# Security-critical paths require security team review before merge
+.github/workflows/      @org/security-team
+modules/iam/            @org/security-team
+*.tf                    @org/platform-team
+.gitleaks.toml          @org/security-team
+```
+
+With `Require review from Code Owners` enabled in branch protection, no PR touching IAM configuration can merge without explicit security team approval — regardless of who opened the PR.
 
 ### PR template for compliance
 
@@ -200,23 +216,25 @@ Hooks that run before commits reach the repository are the last line of defense.
 ```bash
 #!/bin/sh
 # .git/hooks/commit-msg
+# Uses POSIX extended regex (-E) — works on macOS and Linux
 COMMIT_MSG=$(cat "$1")
-PATTERN="^(feat|fix|docs|refactor|test|chore|ci|perf|revert|security)(\(.+\))?: .{1,72}"
-if ! echo "$COMMIT_MSG" | grep -qP "$PATTERN"; then
+PATTERN="^(feat|fix|docs|refactor|test|chore|ci|perf|revert|security)(\([^)]+\))?: .{1,72}"
+if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
     echo "ERROR: Commit message does not follow Conventional Commits format."
     echo "Expected: feat(scope): description"
     exit 1
 fi
 ```
 
-### pre-push hook — run tests before push
+### pre-push hook — run validation before push
 
 ```bash
 #!/bin/sh
 # .git/hooks/pre-push
+# Install ansible-lint: pip install ansible-lint
+# Install terraform: https://developer.hashicorp.com/terraform/install
 echo "Running pre-push validation..."
-terraform validate ./modules/ && echo "Terraform valid" || exit 1
-ansible-lint ./playbooks/ && echo "Ansible lint passed" || exit 1
+terraform validate ./modules/ && echo "Terraform: valid" || exit 1
 ```
 
 ### Server-side enforcement (GitHub)
@@ -274,6 +292,19 @@ git log -G "10\.0\.0\.0/16" --oneline
 git fetch --prune
 git branch -r --merged main | grep -v "main\|HEAD" | xargs git push origin --delete
 ```
+
+---
+
+## Interview Questions
+
+**Q: What is GitOps and how does Git enforce it?**
+A: GitOps is the practice of using a Git repository as the single source of truth for infrastructure state. Changes are made via PR + review, merged to `main`, and automation applies the state to the live system. Git enforces it through branch protection (no direct push to `main`), required CI status checks (`terraform plan` must pass), and merge requirements (PR approvals). Drift detection runs periodically to catch out-of-band changes.
+
+**Q: How do you handle hotfixes in a team that has both `main` and active `release/` branches?**
+A: Cut the hotfix branch from the tag that is currently in production — not from `main`. Apply the minimal fix. Merge to `main` first (or cherry-pick to `main` immediately after). Then cherry-pick the fix to all active release branches. Tag a patch release on each affected branch. This ensures the fix is in `main` for the next release cycle and in every currently-supported release.
+
+**Q: In a regulated environment, how do you prove that a specific change went through proper review before reaching production?**
+A: The Git history + GitHub pull request audit trail. Each commit is traceable to an authenticated GitHub identity. PRs are required by branch protection — no direct push is possible. Required approvals are enforced. Status checks (CI, security scan) must pass. The PR ID, approvers, merge time, and commit SHA are all immutable in GitHub's audit log. The merge commit on `main` and the deployment tag together form the change record.
 
 ---
 

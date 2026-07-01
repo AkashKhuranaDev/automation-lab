@@ -1,5 +1,7 @@
 # Git Tags — Release Management and Versioning
 
+> **Related sections:** [`enterprise-workflows/`](../enterprise-workflows/) for release branching strategies; [`security/`](../security/) for GPG tag signing; [`hooks/`](../hooks/) for CI/CD trigger patterns based on tags; [`branching/`](../branching/) for how tags relate to release branches.
+
 ## Overview
 
 Tags are permanent references to specific commits. Unlike branches, they do not move when new commits are added. They are the correct mechanism for marking releases, milestones, and auditable snapshots of your codebase.
@@ -61,13 +63,24 @@ Tags should follow [Semantic Versioning](https://semver.org): `MAJOR.MINOR.PATCH
 | `PATCH` | Backward-compatible bug fixes |
 
 ```
-v1.0.0     — initial stable release
-v1.1.0     — new feature added
-v1.1.1     — bug fix in v1.1.0
-v2.0.0     — breaking API change
-v2.0.0-rc.1 — release candidate
+v1.0.0        — initial stable release
+v1.1.0        — new feature added
+v1.1.1        — bug fix in v1.1.0
+v2.0.0        — breaking API change
+v2.0.0-rc.1   — release candidate
 v2.0.0-beta.1 — beta
 ```
+
+### CalVer — Calendar Versioning
+
+Some infrastructure and platform teams use CalVer instead of SemVer:
+
+```
+2025.07.1     — year.month.release-number
+2025.07.01    — zero-padded variant
+```
+
+CalVer is appropriate when there are no API consumers to signal breaking changes to — for internal tooling, platform releases, or CI image versions where "what month was this released" is more useful than semantic compatibility signals.
 
 ---
 
@@ -107,18 +120,21 @@ git push origin --tags
 ## Listing and Searching Tags
 
 ```bash
-# List all tags
+# List all tags (alphabetical order — not version order)
 git tag
 
 # List with pattern
 git tag -l "v1.*"
+
+# ⚠ git tag -l returns ALPHABETICAL order, not semantic version order
+# v1.10.0 will appear before v1.9.0 alphabetically
+# Always use --sort for version-safe ordering:
+git tag -l --sort=version:refname "v*"
 # v1.0.0
 # v1.1.0
-# v1.1.1
-# v1.2.0
-
-# List tags sorted by version
-git tag -l --sort=version:refname "v*"
+# v1.9.0
+# v1.10.0
+# v1.11.0
 
 # Show tag details
 git show v1.2.0
@@ -202,7 +218,56 @@ jobs:
         run: ./scripts/deploy.sh $VERSION
 ```
 
-This triggers only on version tags, not on every commit. The pipeline gets the version from the tag name.
+### Auto-creating tags from CI (semantic-release)
+
+```yaml
+# .github/workflows/release.yml
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # semantic-release needs full history to determine version
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+`semantic-release` parses commit messages (Conventional Commits format), determines the next semver version, creates the annotated tag, and generates a GitHub Release automatically.
+
+---
+
+## git describe — Version Strings from Tags
+
+`git describe` is how build systems derive a version string from the tag history:
+
+```bash
+# On a tagged commit
+git describe --tags
+# v1.2.0
+
+# On a commit 3 commits after the tag (typical in dev)
+git describe --tags
+# v1.2.0-3-gabc1234
+# └─────┘ └ └──────┘
+# tag     │  abbreviated SHA of current commit
+#         └─ number of commits since the tag
+
+# Use in a build script
+VERSION=$(git describe --tags --always --dirty)
+# v1.2.0-3-gabc1234-dirty  ← -dirty suffix if working tree has changes
+```
+
+This is how Docker image tags, binary versions, and release notes are automatically versioned without manually maintaining a version file.
 
 ---
 
@@ -271,6 +336,19 @@ git checkout v1.2.0
 # To work from this point, create a branch:
 git checkout -b investigate/v1.2.0 v1.2.0
 ```
+
+---
+
+## Interview Questions
+
+**Q: What is the difference between a lightweight tag and an annotated tag?**
+A: A lightweight tag is just a pointer (like a branch) to a commit SHA — it is stored as a ref with no additional metadata. An annotated tag is a full Git object with its own SHA, containing the tagger name, email, date, and message. Use annotated tags for releases (they are signed, searchable, and carry metadata). Use lightweight tags for temporary or personal bookmarks.
+
+**Q: How do you trigger a CI/CD pipeline to run only on tags?**
+A: In GitHub Actions: `on: push: tags: ['v*.*.*']`. This triggers only when a push includes a tag matching the pattern. The pipeline can then use the tag name as the release version, build a release artifact, and publish to a registry.
+
+**Q: A tag was pushed to the wrong commit. How do you fix it?**
+A: Recreate it: `git tag -d v1.2.0` locally, `git push origin :refs/tags/v1.2.0` to delete remotely, then `git tag -a v1.2.0 <correct-sha>` and `git push origin v1.2.0`. Coordinate with the team — clients or CI systems may have already pulled the old tag. If the tag was signed and published in a release, update the GitHub Release as well.
 
 ---
 

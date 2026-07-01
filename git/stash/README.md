@@ -1,5 +1,7 @@
 # Git Stash — Managing Work in Progress
 
+> **Related sections:** [`fundamentals/`](../fundamentals/) for the three-tree model that explains where stash state lives; [`recovery/`](../recovery/) for recovering dropped stash; [`branching/`](../branching/) for when to stash vs create a quick branch.
+
 ## Overview
 
 Stash saves uncommitted changes (staged and unstaged) to a temporary storage area so you can switch context without committing incomplete work. It is a precision tool — not a dumping ground.
@@ -29,6 +31,28 @@ Most engineers use `git stash` and `git stash pop` and stop there. This document
 - As a long-term storage mechanism — stashes are not named branches
 - For work that should be committed even as WIP (use a WIP commit with `--no-verify`)
 - Across session boundaries where you might forget it exists (save stashes with descriptive messages)
+
+---
+
+## How Stash Works Internally
+
+Stash is implemented as a set of commits stored under `refs/stash`. When you run `git stash`, Git creates:
+
+1. A commit for the index state (staged changes)
+2. A commit for the working directory state (unstaged changes)
+3. A merge commit combining them, stored as the new `refs/stash` tip
+
+This is why `git fsck --unreachable` can find dropped stashes — the commit objects remain in `.git/objects/` until GC runs. See [`recovery/`](../recovery/) for the full recovery workflow.
+
+```bash
+# See what stash actually is in the object store
+git cat-file -t refs/stash
+# commit
+
+git log refs/stash --oneline -3
+# stash@{0}: index on feature/vpc: ...
+# stash@{1}: untracked files on feature/vpc: ...
+```
 
 ---
 
@@ -74,11 +98,12 @@ git stash push modules/vpc/main.tf modules/vpc/outputs.tf \
   -m "WIP: vpc output refactor"
 ```
 
-### Stash interactively (patch mode)
+### Stash only staged changes (Git 2.35+)
 
 ```bash
-git stash -p
-# Presents hunks and asks y/n — stash partial file changes
+# Stash only what is in the index, leave working directory alone
+git stash --staged
+# Requires Git 2.35 — check your version: git --version
 ```
 
 ---
@@ -91,10 +116,11 @@ git stash list
 # stash@{1}: On main: WIP: scratch test for iam module
 
 git stash show stash@{0}
-# Summary of what changed
+# Summary of what changed (files + insertions/deletions)
 
 git stash show -p stash@{0}
-# Full diff
+# Full diff — use this when you can't remember what's in a stash
+# Essential before deciding whether to apply or drop
 ```
 
 ---
@@ -237,6 +263,19 @@ git stash  # Re-stash the changes
 git checkout correct-branch
 git stash pop
 ```
+
+---
+
+## Interview Questions
+
+**Q: What is the difference between `git stash pop` and `git stash apply`?**
+A: `git stash pop` applies the stash and removes it from the stash list. `git stash apply` applies the stash but leaves it in the list. Use `apply` when you want to apply the same stash to multiple branches or when you are unsure the apply will succeed and want the stash to remain as a fallback.
+
+**Q: How do you stash only specific files, not all changes?**
+A: Use `git stash push <file1> <file2>` to stash specific paths. This leaves all other modified files in the working tree untouched. Alternatively, stage only the files you want to keep separate and use `git stash --staged` to stash only the staged portion.
+
+**Q: You accidentally dropped a stash with `git stash drop`. Is it recoverable?**
+A: Yes, if GC has not run. The stash commit objects still exist as unreachable objects. Run `git fsck --unreachable` to find unreachable commits, inspect each with `git show <sha>`, and apply the correct one with `git stash apply <sha>`. See the [`recovery/`](../recovery/) section for the full workflow.
 
 ---
 

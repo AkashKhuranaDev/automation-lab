@@ -1,5 +1,9 @@
 # Git Rebasing — History Rewriting with Intent
 
+> **Related sections:** [`merging/`](../merging/) for when merge is the right choice over rebase; [`cherry-pick/`](../cherry-pick/) for applying specific commits rather than replaying a whole branch; [`recovery/`](../recovery/) for recovering from a rebase that went wrong; [`fundamentals/`](../fundamentals/) for understanding why rebasing changes commit SHAs.
+
+---
+
 ## Overview
 
 Rebasing replays your commits on top of a new base. It is the most misunderstood Git operation — and the most powerful one for maintaining clean, readable commit history in a production codebase.
@@ -48,18 +52,21 @@ Rebase does three things:
 Because new commits are created, **all rebased commit SHAs change**. This is the golden rule consequence.
 
 ```mermaid
-graph LR
-    subgraph Before Rebase
-        A["main: A-B-E"] 
-        B["feature: A-B-C-D"]
-    end
-    subgraph After Rebase
-        C["main: A-B-E"]
-        D["feature: A-B-E-C'-D'"]
-    end
+gitGraph
+   commit id: "A"
+   commit id: "B"
+   commit id: "E (new commit on main)"
+   branch feature-before-rebase
+   checkout feature-before-rebase
+   commit id: "C (old SHA)"
+   commit id: "D (old SHA)"
+   checkout main
+   branch feature-after-rebase
+   commit id: "C-prime (new SHA)"
+   commit id: "D-prime (new SHA)"
 ```
 
-C and D become C' and D' — same content, new SHA.
+C and D become C' and D' — identical diffs, new parent, new SHA.
 
 ---
 
@@ -191,6 +198,55 @@ git rebase --abort
 
 ---
 
+## autosquash — Automated Fixup Commits (the Right Way)
+
+Instead of manually finding fixup targets in the interactive editor, use `git commit --fixup`:
+
+```bash
+# You have a commit with a problem
+git log --oneline
+# 3f8a2b1 feat(vpc): complete VPC module implementation
+# 2e7d9c0 feat(vpc): initial structure
+
+# Create a fixup commit that auto-targets the correct commit
+git add modules/vpc/main.tf
+git commit --fixup 3f8a2b1
+# Creates: "fixup! feat(vpc): complete VPC module implementation"
+
+# Also works for rewording
+git commit --squash 3f8a2b1
+
+# Rebase with autosquash — no manual editor navigation needed
+git rebase -i --autosquash origin/main
+# Git automatically marks the fixup commit in the right position
+```
+
+This workflow removes the need to manually cut and paste lines in the interactive editor. Mark the fix as a fixup when you commit it, then let `--autosquash` arrange it.
+
+---
+
+## `git rebase --exec` — Validate Each Commit
+
+`--exec` runs a command after each replayed commit. Use this to ensure every individual commit in your history passes validation — not just the final state.
+
+```bash
+# Run terraform validate after each commit
+git rebase -i --exec "terraform validate ./modules/" origin/main
+
+# Run tests after each commit during rebase
+git rebase -i --exec "python -m pytest tests/unit/" origin/main
+
+# If a command fails, rebase pauses at that commit
+# Fix the issue, amend, then continue:
+git add .
+git commit --amend --no-edit
+git rebase --continue
+```
+
+This is how you guarantee that `git bisect` will work cleanly on your branch — every commit is individually valid.
+
+---
+
 ## Expected Output
 
 ```bash
@@ -285,6 +341,22 @@ You rebased a branch that was already pushed without force-pushing, then pulled.
 git fetch origin
 git reset --hard origin/feature/my-branch
 ```
+
+---
+
+## Interview Questions
+
+**Q: What is the golden rule of rebasing?**
+A: Never rebase commits that have been pushed to a shared branch that other engineers have based work on. Rebasing changes commit SHAs — engineers who have pulled the old SHAs will have a broken history after a force push.
+
+**Q: When would you use `git rebase --onto`?**
+A: When a branch was accidentally cut from the wrong base. `git rebase --onto <correct-base> <wrong-base> <branch>` replays the commits that are on `branch` but not on `wrong-base`, applying them on top of `correct-base`.
+
+**Q: You have 8 messy commits on a feature branch. How do you clean them up before opening a PR?**
+A: Use `git rebase -i origin/main`. In the interactive editor, mark the first meaningful commit as `pick` and all the cleanup/WIP commits as `fixup`. This collapses them into intentional commits without the noise. Alternatively, use `reword` to clean up commit messages that will appear in the main branch history.
+
+**Q: What is the difference between `squash` and `fixup` in interactive rebase?**
+A: Both merge the commit into the previous one. `squash` opens the editor so you can compose a new combined message. `fixup` discards the commit's message entirely and uses only the previous commit's message. Use `fixup` for typo fixes and review corrections that add no information to the commit message.
 
 ---
 

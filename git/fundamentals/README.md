@@ -1,231 +1,328 @@
-# Git Fundamentals — How Git Actually Works
+# Git Fundamentals — The Three Trees and How Git Thinks
+
+> **Related sections:** [`internals/`](../internals/) covers object storage, packfiles and SHA mechanics; [`recovery/`](../recovery/) applies reflog knowledge to real failure recovery; [`rebasing/`](../rebasing/) depends on understanding how HEAD and refs move.
+
+---
 
 ## Overview
 
-Most engineers use Git every day without understanding what it is actually doing. That gap causes confusion during merges, rebases, and conflict resolution. This document explains Git's internal model so you can reason clearly about any Git operation.
+The single most useful mental model for Git is the three-tree model. Most Git confusion — conflicts that shouldn't exist, resets that went wrong, staging area surprises — comes from not knowing which of the three trees a command is operating on.
 
-Git is not a diff-tracking system. It is a **content-addressable filesystem** that stores snapshots, not diffs.
+Git is not a diff-tracking system. It stores snapshots. Every command either reads from or writes to one or more of three distinct areas.
 
 ---
 
 ## Why This Matters
 
-When you understand Git's object model, the following operations become obvious rather than mysterious:
+When you understand the three trees and how HEAD works:
 
-- Why `git reset` behaves differently with `--soft`, `--mixed`, and `--hard`
-- Why rebasing rewrites commit hashes
-- Why `git reflog` can recover work that appears deleted
-- Why merging creates a new commit but fast-forward does not
-- Why detached HEAD is a state, not an error
-
----
-
-## The Git Object Model
-
-Git stores four types of objects. Every object is identified by its SHA-1 hash.
-
-| Object | What it represents |
-|---|---|
-| `blob` | File content (a single version of a file) |
-| `tree` | A directory — maps filenames to blob or tree hashes |
-| `commit` | A snapshot — points to a tree, parent commit(s), author, message |
-| `tag` | An annotated reference to a specific commit |
-
-```mermaid
-graph TD
-    COMMIT["commit\nabc1234"] --> TREE["tree\ndef5678"]
-    COMMIT --> PARENT["parent commit\n789abcd"]
-    TREE --> BLOB1["blob\nREADME.md"]
-    TREE --> BLOB2["blob\nmain.py"]
-    TREE --> SUBTREE["tree\nsrc/"]
-    SUBTREE --> BLOB3["blob\napp.py"]
-```
-
-Every commit points to exactly one tree. The tree points to blobs (files) and other trees (subdirectories). This means Git stores full snapshots, not diffs between versions.
+- `git reset --soft`, `--mixed`, and `--hard` become completely predictable
+- Detached HEAD is an understandable state, not a scary error
+- Staging surprises disappear
+- You can explain exactly what `git checkout`, `git restore`, and `git switch` each do
+- You understand why `git add -p` is one of the most powerful daily commands
 
 ---
 
-## Refs — How Git Tracks Branches and Tags
+## Learning Objectives
 
-A branch is not a container. It is a **pointer to a commit**.
-
-```
-refs/heads/main       → abc1234
-refs/heads/feature/x  → def5678
-refs/tags/v1.0.0      → 789abcd
-HEAD                  → refs/heads/main
-```
-
-When you commit, Git moves the branch pointer forward to the new commit. The branch is just a file containing a SHA-1 hash.
-
-```bash
-cat .git/refs/heads/main
-# abc1234...
-
-cat .git/HEAD
-# ref: refs/heads/main
-```
+- Articulate the three-tree model and what each area holds
+- Use `git status` to reason about the state of all three areas simultaneously
+- Use `git reset` correctly without fear
+- Navigate detached HEAD state confidently
+- Use `git add -p` for atomic, intentional commits
+- Understand the relationship between HEAD, branch refs, and commits
 
 ---
 
 ## The Three Trees
 
-Git manages three distinct areas. Understanding these explains every staging and reset operation.
-
-| Area | Description |
-|---|---|
-| Working directory | Files on your filesystem as you see them |
-| Staging area (Index) | What will be included in the next commit |
-| Repository (HEAD) | The last committed snapshot |
+| Tree | Also called | Holds |
+|---|---|---|
+| Working directory | Working tree | Files as they appear on disk |
+| Staging area | Index | What the next commit will contain |
+| HEAD | Repository | The last committed snapshot |
 
 ```mermaid
 graph LR
-    WD["Working Directory"] -->|git add| INDEX["Staging Area (Index)"]
-    INDEX -->|git commit| REPO["Repository (HEAD)"]
-    REPO -->|git checkout| WD
-```
+    WD["Working Directory\n(what you see on disk)"]
+    IDX["Staging Area / Index\n(what will be committed)"]
+    REPO["HEAD / Repository\n(last committed state)"]
 
-### What reset does to these three trees
-
-```bash
-git reset --soft HEAD~1   # moves HEAD only — staging and working dir unchanged
-git reset --mixed HEAD~1  # moves HEAD + unstages — working dir unchanged (default)
-git reset --hard HEAD~1   # moves HEAD + unstages + discards working dir changes
+    WD -->|"git add"| IDX
+    IDX -->|"git commit"| REPO
+    REPO -->|"git checkout / git restore"| WD
+    IDX -->|"git restore --staged"| WD
 ```
 
 ---
 
-## Practical Examples
+## Reset — The Most Misunderstood Command
 
-### Inspect any Git object
+`git reset` moves HEAD and optionally modifies the index and working directory. The flag determines how far the effect reaches.
 
-```bash
-# See the type of an object
-git cat-file -t abc1234
-# commit
+```mermaid
+graph TD
+    SOFT["--soft\nMoves HEAD only\nIndex and working dir untouched"]
+    MIXED["--mixed (default)\nMoves HEAD\nResets index\nWorking dir untouched"]
+    HARD["--hard\nMoves HEAD\nResets index\nResets working dir\n⚠ Discards uncommitted changes"]
 
-# See the content of a commit
-git cat-file -p abc1234
-# tree def5678
-# parent 789abcd
-# author Akash Khurana <email> 1719859200 +0000
-# committer Akash Khurana <email> 1719859200 +0000
-#
-# feat(terraform): add VPC module for prod environment
-
-# See the tree a commit points to
-git ls-tree HEAD
-# 100644 blob a1b2c3d4  README.md
-# 100644 blob e5f6a7b8  main.tf
-# 040000 tree c9d0e1f2  modules/
+    SOFT --> MIXED --> HARD
 ```
 
-### Understand what HEAD is pointing to
-
 ```bash
-git rev-parse HEAD
-# Returns the full SHA of the current commit
+# Undo last commit, keep staged changes ready to re-commit
+git reset --soft HEAD~1
 
-git symbolic-ref HEAD
-# Returns the branch name: refs/heads/main
+# Undo last commit, keep file changes but unstage them
+git reset --mixed HEAD~1
 
-# In detached HEAD state, symbolic-ref fails — that is the signal
+# Undo last commit and discard all associated file changes
+git reset --hard HEAD~1
 ```
 
-### See the staging area
+**When `--hard` is dangerous:** If you have uncommitted changes in your working directory, `--hard` destroys them without warning. They are not recoverable via reflog. Stash or commit first.
+
+---
+
+## HEAD — What It Is and Why It Matters
+
+HEAD is a pointer. It points to a branch ref (normal state) or directly to a commit SHA (detached state).
 
 ```bash
+# Normal state
+cat .git/HEAD
+# ref: refs/heads/main
+
+# Detached HEAD state (you checked out a commit directly)
+cat .git/HEAD
+# 3f8a2b1c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f90
+```
+
+When HEAD points to a branch, committing moves the branch ref forward.
+When HEAD points directly to a commit (detached), committing creates a commit with no branch — effectively orphaned unless you create a branch from it.
+
+```bash
+# You are in detached HEAD — you made commits — now recover them
+git checkout -b recover/my-work
+# Creates a branch pointing at the commit you are on — work preserved
+```
+
+---
+
+## The Staging Area — Granular Commit Control
+
+Most engineers treat staging as `git add .` and move on. This creates noisy commit history.
+
+```bash
+# Stage specific files
+git add modules/vpc/main.tf
+
+# Stage specific hunks within a file
+git add -p modules/vpc/main.tf
+# Presents each changed hunk:
+# Stage this hunk [y,n,q,a,d,s,?]?
+# y = yes, n = no, s = split into smaller hunks
+
+# See exactly what is staged vs. what is not
+git diff           # working dir vs index
+git diff --staged  # index vs HEAD (what will be committed)
+
+# See the raw index contents
 git ls-files --stage
-# Shows what is currently in the index with their blob hashes
+```
+
+**Production pattern:** Use `git add -p` before any commit touching more than one logical change. This produces atomic commits that are individually reviewable and revertable.
+
+---
+
+## Commands Reference
+
+| Command | Effect on working dir | Effect on index | Effect on HEAD |
+|---|---|---|---|
+| `git add <file>` | None | Adds file | None |
+| `git commit` | None | None | Advances to new commit |
+| `git reset --soft HEAD~1` | None | None | Moves back one commit |
+| `git reset --mixed HEAD~1` | None | Resets to HEAD | Moves back one commit |
+| `git reset --hard HEAD~1` | Resets to HEAD | Resets to HEAD | Moves back one commit |
+| `git checkout <branch>` | Updates to branch state | Updates to branch state | Points to branch |
+| `git restore <file>` | Resets file to index state | None | None |
+| `git restore --staged <file>` | None | Resets to HEAD state | None |
+
+---
+
+## Architecture — How a Commit Is Built
+
+```mermaid
+sequenceDiagram
+    participant WD as Working Directory
+    participant IDX as Index (Staging Area)
+    participant OBJ as Object Store (.git/objects)
+    participant REF as HEAD → branch ref
+
+    WD->>IDX: git add modules/vpc/main.tf
+    Note over IDX: Blob written to .git/objects/<br/>Index entry updated to reference blob SHA
+    IDX->>OBJ: git commit
+    Note over OBJ: Tree object created from index<br/>Commit object created<br/>(tree SHA + parent SHA + author + message)
+    OBJ->>REF: Branch ref moves to new commit SHA<br/>HEAD continues to point to branch ref
 ```
 
 ---
 
-## Expected Output Examples
+## `git switch` vs `git checkout` (Git 2.23+)
+
+Git 2.23 split `git checkout` into two dedicated commands to reduce confusion:
+
+| Old command | New command | Purpose |
+|---|---|---|
+| `git checkout <branch>` | `git switch <branch>` | Switch to a branch |
+| `git checkout -b <branch>` | `git switch -c <branch>` | Create and switch to a branch |
+| `git checkout <file>` | `git restore <file>` | Discard working directory changes |
+| `git checkout --staged <file>` | `git restore --staged <file>` | Unstage a file |
+
+`git checkout` still works. But `git switch` and `git restore` are explicit — each command does exactly one thing.
 
 ```bash
-$ git log --oneline --graph --all
-* abc1234 (HEAD -> main, origin/main) feat: add Terraform VPC module
-* def5678 refactor: extract subnet logic into module
-* 789abcd fix: correct CIDR block for prod
+# Preferred in Git 2.23+
+git switch main
+git switch -c feature/INFRA-1042-vpc-module
+git restore modules/vpc/main.tf          # discard working dir changes
+git restore --staged modules/vpc/main.tf # unstage
 ```
+
+---
+
+## Reading `git status` Output
+
+`git status` shows the state of all three trees simultaneously. Every engineer should be able to read it precisely.
 
 ```bash
-$ git cat-file -p HEAD
-tree 3f8a2b1c4d5e6f7a8b9c0d1e2f3a4b5c
-parent a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
-author Akash Khurana <akash@example.com> 1719859200 +0000
-committer Akash Khurana <akash@example.com> 1719859200 +0000
+$ git status
+On branch feature/INFRA-1042
+Your branch is up to date with 'origin/feature/INFRA-1042'.
 
-feat(terraform): add VPC module for prod environment
+Changes to be committed:          ← IN THE INDEX (staged)
+  (use "git restore --staged <file>..." to unstage)
+        modified:   modules/vpc/main.tf
 
-Extracted VPC configuration into a reusable module.
-Resolves: INFRA-1042
+Changes not staged for commit:    ← IN WORKING DIR, not in index
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard working directory changes)
+        modified:   modules/vpc/outputs.tf
+
+Untracked files:                  ← NOT tracked by Git at all
+  (use "git add <file>..." to include in what will be committed)
+        modules/vpc/locals.tf
 ```
 
----
+`git status --short` condenses this:
+```bash
+M  modules/vpc/main.tf       # M in column 1 = staged
+ M modules/vpc/outputs.tf    # M in column 2 = unstaged
+?? modules/vpc/locals.tf     # ?? = untracked
+```
 
-## When to Use This Knowledge
-
-- When a colleague says "I lost my commits" — use reflog, they are in the object store
-- When diagnosing merge conflicts — understand which trees are being compared
-- When debugging CI failures after a rebase — understand why hashes changed
-- When auditing repository history — understand what each object represents
-
-## When NOT to Over-Engineer This
-
-You do not need to inspect objects daily. Use `git log`, `git status`, and `git diff` in normal workflows. Drop to the object level when something breaks or needs investigation.
+Column 1 = index vs HEAD. Column 2 = working dir vs index.
 
 ---
 
-## Common Mistakes
+## Real Enterprise Use Cases
 
-| Mistake | Consequence |
-|---|---|
-| Treating branches as folders | Causes confusion about what deleting a branch does |
-| Confusing staging with saving | Leads to incomplete commits |
-| Assuming `git reset --hard` is safe | Discards uncommitted working directory changes permanently |
-| Not understanding HEAD | Makes detached HEAD state confusing and scary |
+**Staged partial changes for audit-clean history**
+
+A platform engineer changes three files during an investigation. Two are the actual fix; one is an unrelated whitespace cleanup. Using `git add -p`, they stage only the fix-related changes and commit separately. The audit trail shows intentional, single-purpose commits.
+
+**Reset to unstage accidentally staged credentials**
+
+An engineer accidentally `git add`s an `.env` file:
+
+```bash
+git reset HEAD .env          # unstage (Git < 2.23)
+git restore --staged .env    # unstage (Git >= 2.23)
+```
+
+The file remains on disk but is no longer staged. The credentials never enter a commit.
+
+**Detached HEAD for testing a specific release**
+
+```bash
+git checkout v1.4.2
+# HEAD detached at v1.4.2
+
+# Run tests, investigate behaviour
+# Return without keeping any changes
+git checkout main
+```
 
 ---
 
 ## Best Practices
 
-- Run `git log --oneline --graph --all` regularly to understand your branch topology
-- Use `git diff --staged` before committing to verify what is actually going in
-- Learn `git reflog` — it is your undo history for HEAD movements
-- After a complex operation, run `git status` to confirm the state of all three trees
+- Always run `git diff --staged` before `git commit` — confirm exactly what is going in
+- Use `git add -p` for any commit that touches more than one logical area
+- Learn `git status` output deeply — it shows the state of all three trees
+- Never run `git reset --hard` if you have uncommitted changes you need
+- Use `git restore` instead of `git checkout` for file-level operations (Git 2.23+)
+
+---
+
+## Common Mistakes
+
+| Mistake | Consequence | Fix |
+|---|---|---|
+| `git add .` with unrelated changes | Noisy commits mixing multiple concerns | Use `git add -p` or `git add <specific-files>` |
+| `git reset --hard` with uncommitted changes | Permanently lose working dir changes | Stash first: `git stash`, then reset |
+| Committing in detached HEAD state | Orphaned commits with no branch | Immediately run `git checkout -b <name>` |
+| Assuming `git checkout` is always safe | In older Git, `git checkout <file>` overwrites working dir silently | Use `git restore` — it is explicit |
 
 ---
 
 ## Troubleshooting
 
-### "I don't know what HEAD is pointing to"
+### "I don't know what state my repository is in"
 
 ```bash
 git status
-# On branch main — or — HEAD detached at abc1234
-
-cat .git/HEAD
-# ref: refs/heads/main — or — abc1234...
+git log --oneline --graph --all | head -15
+git stash list
+git diff
+git diff --staged
 ```
 
-### "I accidentally reset and lost commits"
+Run these in order. They tell you the state of all three trees, recent history, any stashed work, and what has changed.
+
+### "My staged changes disappeared"
 
 ```bash
 git reflog
-# Shows every HEAD movement with timestamps
-
-git reset --hard abc1234
-# Restore to a specific reflog entry
+# Shows every HEAD movement — including resets
+git stash list
+# Maybe they got stashed accidentally
 ```
 
-### "I can't tell what changed between two commits"
+### "I can't tell what the last commit contains"
 
 ```bash
-git diff abc1234 def5678
-git diff abc1234 def5678 -- path/to/file
+git show HEAD
+git show HEAD --stat       # files changed
+git show HEAD --name-only  # file names only
 ```
+
+---
+
+## Interview Questions
+
+**Q: Explain the three-tree model in Git.**
+A: Git manages three areas: the working directory (files on disk), the staging area or index (what the next commit will contain), and HEAD (the last committed snapshot). `git add` moves content from working directory to index. `git commit` moves content from index to HEAD, creating a new commit object.
+
+**Q: What is the difference between `git reset --soft`, `--mixed`, and `--hard`?**
+A: All three move HEAD to a specified commit. `--soft` only moves HEAD, leaving the index and working directory unchanged. `--mixed` (the default) also resets the index to match HEAD, but leaves the working directory. `--hard` resets all three trees to match HEAD — uncommitted changes in the working directory are permanently lost.
+
+**Q: What is detached HEAD state and when does it occur?**
+A: Detached HEAD occurs when HEAD points directly to a commit SHA rather than to a branch ref. This happens when you `git checkout <commit>`, `git checkout <tag>`, or check out a remote-tracking branch directly. Commits made in this state are not on any branch and become unreferenced if you switch away without creating a branch first.
+
+**Q: Why does `git add .` make commit history harder to maintain?**
+A: It stages all changes indiscriminately, including unrelated modifications. This produces commits that mix multiple concerns, making it harder to review, revert, or cherry-pick specific changes later. `git add -p` allows staging by hunk for atomic, intention-revealing commits.
 
 ---
 
@@ -233,8 +330,8 @@ git diff abc1234 def5678 -- path/to/file
 
 | Resource | URL |
 |---|---|
-| Git Internals — Plumbing and Porcelain | https://git-scm.com/book/en/v2/Git-Internals-Plumbing-and-Porcelain |
-| Git Objects | https://git-scm.com/book/en/v2/Git-Internals-Git-Objects |
-| Git References | https://git-scm.com/book/en/v2/Git-Internals-Git-References |
-| git cat-file | https://git-scm.com/docs/git-cat-file |
-| git reflog | https://git-scm.com/docs/git-reflog |
+| Git Reset Demystified | https://git-scm.com/book/en/v2/Git-Tools-Reset-Demystified |
+| git reset | https://git-scm.com/docs/git-reset |
+| git add | https://git-scm.com/docs/git-add |
+| git restore | https://git-scm.com/docs/git-restore |
+| git status | https://git-scm.com/docs/git-status |

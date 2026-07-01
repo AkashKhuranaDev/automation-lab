@@ -1,5 +1,7 @@
 # Git Best Practices — Enterprise Standards for Production Teams
 
+> **Related sections:** [`hooks/`](../hooks/) for automating enforcement of these standards; [`security/`](../security/) for secrets prevention and GPG signing; [`enterprise-workflows/`](../enterprise-workflows/) for how these practices apply within team branching models; [`troubleshooting/`](../troubleshooting/) when practices are not followed.
+
 ## Overview
 
 Best practices in Git are not opinions — they are the difference between a codebase that engineers can trust and debug, and one that they fear touching. Every standard in this document comes from the pain of not following it.
@@ -149,21 +151,21 @@ git commit -m "security: remove accidentally committed credentials"
 
 ## Security Practices
 
+For the full security coverage — secrets scanning, GPG signing, SSH configuration, CODEOWNERS, and PAT scopes — see [`security/`](../security/). This section covers only the practices that belong in every repository's baseline configuration.
+
 | Practice | Implementation |
 |---|---|
 | Never commit secrets | `.gitignore` + pre-commit hooks |
-| Scan every commit for secrets | [`gitleaks`](https://github.com/gitleaks/gitleaks), [`detect-secrets`](https://github.com/Yelp/detect-secrets) |
-| Sign commits | `git config commit.gpgsign true` |
-| Sign tags | `git tag -s` |
+| Scan every commit for secrets | gitleaks via pre-commit framework |
 | Require signed commits on protected branches | GitHub branch protection → require signed commits |
-| Audit repository access | GitHub → Settings → Collaborators |
+| Set CODEOWNERS for sensitive paths | `.github/CODEOWNERS` |
 
 ### Pre-commit hook for secret scanning
 
 ```bash
 # .git/hooks/pre-commit
 #!/bin/sh
-gitleaks detect --staged --no-git
+gitleaks detect --staged --exit-code 1
 if [ $? -ne 0 ]; then
     echo "ERROR: Secrets detected in staged files. Commit aborted."
     exit 1
@@ -174,16 +176,7 @@ fi
 chmod +x .git/hooks/pre-commit
 ```
 
-For team-wide enforcement, use [pre-commit framework](https://pre-commit.com):
-
-```yaml
-# .pre-commit-config.yaml
-repos:
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.18.0
-    hooks:
-      - id: gitleaks
-```
+For team-wide enforcement, use the [pre-commit framework](https://pre-commit.com). See [`hooks/`](../hooks/) for the full pre-commit framework setup.
 
 ---
 
@@ -213,12 +206,14 @@ git branch -vv | grep ': gone]' | awk '{print $1}' | xargs git branch -d
 # Verify repository health
 git fsck
 
-# Compact the object store
-git gc --aggressive
+# Schedule background maintenance (Git 2.31+ — preferred over manual gc)
+git maintenance start
 
 # Check repository disk usage
 git count-objects -vH
 ```
+
+> `git gc --aggressive` is very slow (30+ minutes on large repositories) and provides diminishing returns. Use `git maintenance` for ongoing health. Reserve `git gc --aggressive` for one-time cleanup of repositories that have never been optimized.
 
 ---
 
@@ -276,6 +271,19 @@ git lfs track "*.bin"
 git lfs track "diagrams/*.png"
 git add .gitattributes
 ```
+
+---
+
+## Interview Questions
+
+**Q: What is Conventional Commits and why does it matter operationally?**
+A: Conventional Commits is a commit message specification using structured prefixes (`feat`, `fix`, `chore`, etc.) and optional scope. Operationally, it enables automated changelog generation, semantic version bumping, and reliable `git log` filtering. Tools like `semantic-release` and `release-please` parse these messages to generate release notes automatically.
+
+**Q: What belongs in `.gitignore` versus `.gitattributes`?**
+A: `.gitignore` controls what Git tracks at all — files listed there are never staged. `.gitattributes` controls how Git handles files it does track: line-ending normalization (`eol`), diff behavior (`diff=word`), merge strategy (`merge=ours`), and LFS routing (`filter=lfs`). Both should be committed to the repository.
+
+**Q: Why is committing a secret to Git such a serious issue, even if it is deleted in the next commit?**
+A: The secret still exists in the Git object store and is visible in the history. Anyone who cloned the repository between the bad commit and the deletion still has the secret locally. GitHub scans repositories and notifies secret owners (AWS, GCP, etc.) even before you notice. Removal requires `git filter-repo` to rewrite history and force-push — disrupting all existing clones. The only safe resolution is to rotate the secret immediately, regardless of cleanup.
 
 ---
 

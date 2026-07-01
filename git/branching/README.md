@@ -1,5 +1,9 @@
 # Git Branching — Strategy, Structure, and Enterprise Patterns
 
+> **Related sections:** [`merging/`](../merging/) for how branches are integrated; [`rebasing/`](../rebasing/) for updating branches from main; [`enterprise-workflows/`](../enterprise-workflows/) for how branch models connect to deployment pipelines; [`hooks/`](../hooks/) for enforcing branch naming with commit hooks.
+
+---
+
 ## Overview
 
 A branch model is an engineering contract between your team and your deployment pipeline. Get it wrong and every release becomes manual reconciliation work. Get it right and the pipeline runs itself.
@@ -21,9 +25,37 @@ The branch model should be decided once, written down, enforced by branch protec
 
 ---
 
+## Learning Objectives
+
+- Articulate the tradeoffs between trunk-based development, GitHub Flow, and GitFlow
+- Choose the right branch model for a given deployment cadence
+- Enforce branch naming conventions with automation
+- Manage branch lifecycle cleanly at scale
+- Understand how branching strategy connects to CI/CD pipeline design
+
+---
+
+## Branch Model Decision Tree
+
+```mermaid
+graph TD
+    Q1{"How often do you\ndeploy to production?"}
+    Q2{"Do you maintain\nmultiple live versions?"}
+    Q3{"Do you have\nfeature flags?"}
+
+    Q1 -->|"Multiple times daily"| Q3
+    Q1 -->|"Weekly/monthly"| Q2
+    Q2 -->|"Yes"| GITFLOW["GitFlow\nRelease branches per version"]
+    Q2 -->|"No"| GITHUB["GitHub Flow\nShort branches, merge to main"]
+    Q3 -->|"Yes"| TRUNK["Trunk-Based Development\nCommit to main, flags control exposure"]
+    Q3 -->|"No"| GITHUB
+```
+
+---
+
 ## How Branches Work Internally
 
-A branch is a file in `.git/refs/heads/` containing a 40-character commit SHA.
+A branch is a file in `.git/refs/heads/` (or in `.git/packed-refs`) containing a 40-character commit SHA.
 
 ```bash
 cat .git/refs/heads/main
@@ -62,6 +94,16 @@ gitGraph
 
 **When NOT to use**: Teams without automated test coverage. The trunk breaks constantly without tests.
 
+**Feature flags for trunk-based development**: Code merged to `main` may not be activated in production. Use environment variables, LaunchDarkly, AWS AppConfig, or a simple `FEATURE_X_ENABLED=true` env var to control exposure. The flag is removed once the feature is stable.
+
+```bash
+# Example: simple env-var feature flag in Python
+if os.environ.get("FEATURE_NEW_VPC_MODULE"):
+    use_new_vpc_module()
+else:
+    use_legacy_vpc_module()
+```
+
 ---
 
 ### GitHub Flow (good for most teams)
@@ -91,19 +133,19 @@ Two permanent branches (`main`, `develop`). Feature branches come off `develop`.
 
 ```mermaid
 gitGraph
-   commit id: "v1.0.0" tag: "v1.0.0"
+   commit id: "v1.0.0"
    branch develop
-   commit id: "dev work"
+   commit id: "dev-work"
    branch feature/auth
-   commit id: "add OIDC"
+   commit id: "add-OIDC"
    checkout develop
-   merge feature/auth
+   merge feature/auth id: "merge-auth"
    branch release/1.1
-   commit id: "release prep"
+   commit id: "release-prep"
    checkout main
-   merge release/1.1 id: "v1.1.0" tag: "v1.1.0"
+   merge release/1.1 id: "v1.1.0"
    checkout develop
-   merge release/1.1
+   merge release/1.1 id: "back-merge"
 ```
 
 **When to use**: Software with versioned releases, enterprise products that maintain v1, v2, v3 simultaneously.
@@ -277,6 +319,22 @@ git reflog show origin/main
 # Or ask the engineer who force-pushed to check their local reflog
 git reflog
 ```
+
+---
+
+## Interview Questions
+
+**Q: What branch strategy would you recommend for a platform team running 10+ deployments per day?**
+A: Trunk-based development. Short-lived feature branches (under 2 days), continuous integration into `main`, and feature flags to control exposure. GitFlow overhead kills velocity at that deployment cadence.
+
+**Q: Your team uses GitFlow. A critical bug is found in production. Walk me through the hotfix process.**
+A: Cut a `hotfix/` branch directly from the production tag (or `main`). Apply the minimal fix. Merge to `main` with `--no-ff` and tag the release. Then back-merge to `develop` so the fix is included in the next release cycle. Do not cut the hotfix from `develop` — `develop` may have unreleased work.
+
+**Q: What is the difference between a branch and a tag in Git?**
+A: A branch is a mutable pointer — it moves forward with each new commit. A tag is an immutable pointer — once created, it always refers to the same commit. Branches track evolving work; tags mark specific, permanent points in history like releases.
+
+**Q: How would you enforce branch naming conventions across a team of 40 engineers?**
+A: Use a `commit-msg` or `pre-push` hook via the pre-commit framework for local enforcement. Add a GitHub Actions workflow that validates the PR branch name against the naming pattern and blocks merge if it does not conform. Document the convention in `CONTRIBUTING.md`.
 
 ---
 

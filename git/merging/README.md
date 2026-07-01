@@ -1,5 +1,9 @@
 # Git Merging — Strategies, Tradeoffs, and Enterprise Decisions
 
+> **Related sections:** [`branching/`](../branching/) for how branch models determine merge strategy; [`rebasing/`](../rebasing/) for the alternative to merge for branch integration; [`cherry-pick/`](../cherry-pick/) for selective commit application across branches; [`enterprise-workflows/`](../enterprise-workflows/) for GitFlow merge conventions.
+
+---
+
 ## Overview
 
 Merging is the act of integrating one line of development into another. Git offers multiple merge strategies, and the wrong choice creates history that is either unreadable or unauditable. This document covers every merge type, when to use each, and what the history looks like after.
@@ -170,6 +174,42 @@ git config --global merge.tool vscode
 git config --global mergetool.vscode.cmd 'code --wait $MERGED'
 ```
 
+### Diagnose what is causing a conflict
+
+```bash
+# Show commits from both sides that touch the conflicting paths
+git log --merge --oneline
+# abc1234 (HEAD -> main) fix: update CIDR block
+# def5678 (feature/vpc) feat: add subnet configuration
+```
+
+`git log --merge` shows exactly which commits on each side contribute to the conflict — essential for understanding what actually disagrees before resolving.
+
+---
+
+## rerere — Reuse Recorded Resolutions
+
+`rerere` records how you resolved a conflict. If the same conflict appears again — common in release branches receiving repeated cherry-picks — Git automatically applies the recorded resolution.
+
+```bash
+# Enable globally
+git config --global rerere.enabled true
+
+# Where rerere stores its data
+ls .git/rr-cache/
+# SHA-of-conflict-state/
+#   preimage   ← what the file looked like before resolution
+#   postimage  ← what you resolved it to
+
+# See recorded conflicts
+git rerere status
+
+# Clear a recorded resolution (if your resolution was wrong)
+git rerere forget path/to/conflicted-file
+```
+
+**Most useful for**: Teams maintaining multiple release branches that all receive the same security hotfixes. After resolving a conflict once on `release/1.8`, rerere resolves the identical conflict on `release/1.9` and `release/2.0` automatically.
+
 ---
 
 ## Practical Examples
@@ -285,6 +325,22 @@ git revert -m 1 <merge-commit-hash>
 
 ---
 
+## Interview Questions
+
+**Q: When would you choose a squash merge over a no-FF merge?**
+A: Squash merge when the feature branch has messy intermediate commits (WIP, typo fixes, review changes) and you want one clean, intentional commit on `main`. Use no-FF when you need an audit trail showing that specific commits arrived together as a feature or fix — such as in regulated environments where change records reference PR merge commits.
+
+**Q: What is `git rerere` and when is it useful?**
+A: `rerere` stands for "reuse recorded resolution." When enabled, Git records how you resolved a conflict. If the same conflict appears again (common in long-lived release branches receiving repeated cherry-picks), Git automatically applies the recorded resolution. Enable with `git config rerere.enabled true`.
+
+**Q: You merged the wrong branch into main and it was already pushed. What do you do?**
+A: Run `git revert -m 1 <merge-commit-sha>`. This creates a new commit that reverses the merge without rewriting history — safe for shared branches. Never `git reset --hard` a shared branch after it has been pushed.
+
+**Q: What is the difference between `git merge --ff-only` and `git merge --no-ff`?**
+A: `--ff-only` fails the merge if a fast-forward is not possible — useful for enforcing that feature branches are always rebased before merging. `--no-ff` forces a merge commit even when fast-forward is possible — useful for always leaving a record that a branch existed.
+
+---
+
 ## References
 
 | Resource | URL |
@@ -293,3 +349,4 @@ git revert -m 1 <merge-commit-hash>
 | git merge | https://git-scm.com/docs/git-merge |
 | git mergetool | https://git-scm.com/docs/git-mergetool |
 | Advanced Merge Strategies | https://git-scm.com/book/en/v2/Git-Tools-Advanced-Merging |
+| git rerere | https://git-scm.com/docs/git-rerere |
