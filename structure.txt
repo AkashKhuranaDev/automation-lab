@@ -1,0 +1,35 @@
+automation-lab/
+│
+├── README.md
+├── LICENSE
+├── .gitignore
+│
+├── linux/
+│   ├── health-check/
+│   ├── filesystem/
+│   ├── users/
+│   └── services/
+│
+├── windows/
+│   ├── health-check/
+│   ├── eventlogs/
+│   ├── services/
+│   └── registry/
+│
+├── chef/
+│   ├── knife/
+│   ├── bootstrap/
+│   ├── node-management/
+│   └── compliance/
+│
+├── python/
+│   ├── utilities/
+│   └── automation/
+│
+├── powershell/
+│
+├── bash/
+│
+├── docs/
+│
+└── assets/
